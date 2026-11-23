@@ -1,0 +1,12 @@
+{
+  "name": "free-life-source",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Editable Free Life browser game source",
+  "scripts": {
+    "start": "node local-server.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

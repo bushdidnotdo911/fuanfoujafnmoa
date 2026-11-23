@@ -1,0 +1,33 @@
+All Wikimedia Commons images below are public domain (US government works). Changes for every file: placed on a round
+medallion background and resized to 160 px.
+
+army-1778.png
+  "Seal of the United States Board of War and Ordnance.png" (1778, used by the War Department until 1880)
+  https://commons.wikimedia.org/wiki/File:Seal_of_the_United_States_Board_of_War_and_Ordnance.png
+
+army-seal.png
+  "Seal of the United States Department of War.png" (War Office seal)
+  https://commons.wikimedia.org/wiki/File:Seal_of_the_United_States_Department_of_War.png
+
+marines-early.png
+  "Old EGA.png" (eagle and fouled anchor with 13 stars, the precursor of the Eagle, Globe and Anchor)
+  https://commons.wikimedia.org/wiki/File:Old_EGA.png
+
+revenue-1799.png
+  "Ensign of the United States Revenue-Marine (1799).png"
+  https://commons.wikimedia.org/wiki/File:Ensign_of_the_United_States_Revenue-Marine_(1799).png
+
+revenue-1867.png
+  "Ensign of the United States Revenue-Marine (1867).png"
+  https://commons.wikimedia.org/wiki/File:Ensign_of_the_United_States_Revenue-Marine_(1867).png
+
+navy-1879.png
+  "Anchor, Constitution, and Eagle.svg" (Navy Department design, 1879), Wikimedia Commons, supplied by the project owner
+  https://commons.wikimedia.org/wiki/File:Anchor,_Constitution,_and_Eagle.svg
+
+marines-1868.png
+  "Eagle, Globe, and Anchor.svg", Wikimedia Commons, supplied by the project owner
+  https://commons.wikimedia.org/wiki/File:Eagle,_Globe,_and_Anchor.svg
+
+army.png, navy.png, marines-1859.png, revenue.png
+  From 1800s_US_military_PNGs.zip supplied by the project owner (no longer used by the game).

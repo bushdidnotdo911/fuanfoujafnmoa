@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">
+  <!-- Discord's verified mark: two thick rounded blurple strokes forming an S-like shape -->
+  <g fill="none" stroke="#7489dd" stroke-width="58" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M46 158 C 90 128, 128 100, 160 92 C 182 86, 198 92, 206 104"/>
+    <path d="M274 162 C 230 192, 192 220, 160 228 C 138 234, 122 228, 114 216"/>
+  </g>
+</svg>

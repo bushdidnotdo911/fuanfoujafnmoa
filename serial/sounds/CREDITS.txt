@@ -1,0 +1,24 @@
+﻿Serial Killer DLC sound effects
+
+All sounds below are by BudgetPixel AI (https://budgetpixel.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Files were renamed for the game; audio is unmodified.
+
+start.wav: "Swirling Cursed Whisper" by BudgetPixel AI (https://budgetpixel.com/sfx/swirling-cursed-whisper-15a292e3) - CC BY 4.0
+hunt.wav: "Echoing Corridor Footsteps" by BudgetPixel AI (https://budgetpixel.com/sfx/echoing-corridor-footsteps-3267aedc) - CC BY 4.0
+found.wav: "Suspense Zoom Sting" by BudgetPixel AI (https://budgetpixel.com/sfx/suspense-zoom-sting-c8bebc55) - CC BY 4.0
+execute.wav: "Deep Dread Sub Drop" by BudgetPixel AI (https://budgetpixel.com/sfx/deep-dread-sub-drop-dbe0f301) - CC BY 4.0
+kill.wav: "Dark Satisfying Kill Hit" by BudgetPixel AI (https://budgetpixel.com/sfx/dark-satisfying-kill-hit-632cd873) - CC BY 4.0
+fail.wav: "Horror Violin Stinger" by BudgetPixel AI (https://budgetpixel.com/sfx/horror-violin-stinger-96881c2f) - CC BY 4.0
+lake.wav: "Cannonball Pool Splash" by BudgetPixel AI (https://budgetpixel.com/sfx/cannonball-pool-splash-66b172cc) - CC BY 4.0
+house.mp3: "Horror Door Creak" by BudgetPixel AI (https://budgetpixel.com/sfx/horror-door-creak-1a613c5d) - CC BY 4.0
+bury.wav: "Squishy Mud Footsteps" by BudgetPixel AI (https://budgetpixel.com/sfx/squishy-mud-footsteps-3facb0e9) - CC BY 4.0
+bodyfound.wav: "Orchestral Shock Hit" by BudgetPixel AI (https://budgetpixel.com/sfx/orchestral-shock-hit-e9ddbc31) - CC BY 4.0
+famous.wav: "Vintage Film Camera Shutter" by BudgetPixel AI (https://budgetpixel.com/sfx/vintage-film-camera-shutter-bcbb8c64) - CC BY 4.0
+detective.wav: "Dramatic Violin Stab" by BudgetPixel AI (https://budgetpixel.com/sfx/dramatic-violin-stab-329c0219) - CC BY 4.0
+interview.mp3: "Radio Tuning Static" by BudgetPixel AI (https://budgetpixel.com/sfx/radio-tuning-static-f0a85fa9) - CC BY 4.0
+taxidermy.wav: "Haunted Music Box Slowdown" by BudgetPixel AI (https://budgetpixel.com/sfx/haunted-music-box-slowdown-ea426f52) - CC BY 4.0
+identity.wav: "Pen Signature Scratch" by BudgetPixel AI (https://budgetpixel.com/sfx/pen-signature-scratch-505332d3) - CC BY 4.0
+event.mp3: "Eerie Detuned Piano Hit" by BudgetPixel AI (https://budgetpixel.com/sfx/eerie-detuned-piano-hit-8a813926) - CC BY 4.0
+confess.mp3: "Sad Weeping Violin Phrase" by BudgetPixel AI (https://budgetpixel.com/sfx/sad-weeping-violin-phrase-fafe9ba1) - CC BY 4.0
+breakin.wav: "Attic Floor Creak" by BudgetPixel AI (https://budgetpixel.com/sfx/attic-floor-creak-d9c14d69) - CC BY 4.0
+cackle.wav: "Escalating Villain Cackle" by BudgetPixel AI (https://budgetpixel.com/sfx/escalating-villain-cackle-7df103a1) - CC BY 4.0

@@ -1,0 +1,30 @@
+Family Tree mod: era backgrounds (eras/*.jpg)
+All downloaded from Wikimedia Commons (1280px versions). Each is public domain or CC0.
+
+c-stoneage.webp  Charles R. Knight, Neanderthal family at a rock shelter (1920), supplied by the user. Knight's 1920 paintings are public domain in the U.S.
+
+Stone Age face sprites (cave/faces-*.webp) were supplied by the user.
+
+c1700.jpg  Canaletto, "The Thames and the City of London from Richmond House" (1747)
+           Public domain (PD-Art). https://commons.wikimedia.org/wiki/File:Canaletto_london.jpg
+
+c1800.jpg  John Constable, "The Hay Wain" (1821), National Gallery, London
+           Public domain (PD-Art). https://commons.wikimedia.org/wiki/File:John_Constable_-_The_Hay_Wain_(1821).jpg
+
+c1850.jpg  William Powell Frith, "A Private View at the Royal Academy, 1881" (1883)
+           Public domain (PD-Art). https://commons.wikimedia.org/wiki/File:Frith_A_Private_View.jpg
+
+c1900.jpg  George Bellows, "New York" (1911), National Gallery of Art
+           CC0 (NGA Open Access). https://commons.wikimedia.org/wiki/File:George_Bellows,_New_York,_1911,_NGA_69392.jpg
+
+c1950.jpg  "Main street. Bokoshe, Le Flore County, Oklahoma." (24 July 1946), U.S. National Archives (NARA 540661)
+           Public domain (U.S. federal government work). Cropped to remove the film border.
+           https://commons.wikimedia.org/wiki/File:Main_street._Bokoshe,_Le_Flore_County,_Oklahoma._-_NARA_-_540661.jpg
+
+c1970.jpg  "Street scene in downtown Dallas, in front of Baker Hotel on Commerce Street" (May 1972),
+           EPA DOCUMERICA project, U.S. National Archives (NARA 547806)
+           Public domain (U.S. federal government work).
+           https://commons.wikimedia.org/wiki/File:STREET_SCENE_IN_DOWNTOWN_DALLAS,_IN_FRONT_OF_BAKER_HOTEL_ON_COMMERCE_STREET_-_NARA_-_547806.jpg
+
+c2000.jpg  "At the bustling Times Square" (2016), via Unsplash
+           CC0. https://commons.wikimedia.org/wiki/File:At_the_bustling_Times_Square_(Unsplash).jpg

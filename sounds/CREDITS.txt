@@ -1,0 +1,71 @@
+tattoo-buzz.wav
+  "Tattoo Machine Buzz" by BudgetPixel AI (https://budgetpixel.com/sfx/tattoo-machine-buzz-9c3c43ee)
+  Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  Changes: trimmed from 4 s to 2.5 s with a fade in and fade out.
+
+tavern-chatter.wav
+  "Restaurant ambience.ogg" by stephan (https://commons.wikimedia.org/wiki/File:Restaurant_ambience.ogg)
+  Public domain
+  Changes: cut 5 s from 0:41, mixed to mono, faded in and out.
+
+gallop.wav
+  "Six Horses Galloping By.ogg" by Freesound Community and Bruno Auzet (https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg)
+  CC0
+  Changes: cut 2.8 s from 0:06, mixed to mono, faded in and out.
+
+crowd-jeer.wav
+  "Crowd Shouting/Speaking Ambience" by StarNinjas (https://opengameart.org/content/crowd-shoutingspeaking-ambience)
+  CC0
+  Changes: cut 6 s from 0:01, mixed to mono, resampled to 24 kHz, normalized, faded in and out.
+
+trapdoor.wav
+  "Springlocked cellar door.ogg" by stephan (https://commons.wikimedia.org/wiki/File:Springlocked_cellar_door.ogg)
+  Public domain
+  Changes: cut the door slam at 0:04, mixed to mono, resampled to 24 kHz, normalized, faded out.
+
+rope-creak.wav
+  "Tree Creaking" by Department64, cleaned up by AntumDeluge (https://opengameart.org/content/tree-creaking)
+  CC0
+  Changes: cut 3.5 s from the start, resampled to 24 kHz, normalized, faded in and out.
+
+axe-chop.wav, tree-fall.wav
+  "tree chop fall thud" by kheetor (https://opengameart.org/content/tree-chop-fall-thud)
+  CC0
+  Changes: split into the chop and the creak-and-fall, mixed to mono, resampled to 24 kHz, normalized, faded.
+
+saw-stroke.wav
+  "WWS FellingaChristmastree.ogg" by Work With Sounds / Technical Museum of Slovenia, recorded by Dušan Oblak (https://commons.wikimedia.org/wiki/File:WWS_FellingaChristmastree.ogg)
+  Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  Changes: cut 1.4 s from 0:09, mixed to mono, resampled to 24 kHz, normalized, faded in and out.
+
+fishing-reel.wav, fish-splash.wav
+  "Fisheefects" (reel.wav, splash.wav) by Memoraphile @ You're Perfect Studio (https://opengameart.org/content/fisheefects)
+  CC0
+  Changes: cut, mixed to mono, resampled to 24 kHz, normalized, faded in and out.
+
+wolf-howl.wav
+  "Wolf howls.ogg" by the U.S. Fish and Wildlife Service (https://commons.wikimedia.org/wiki/File:Wolf_howls.ogg)
+  Public domain (work of the U.S. federal government)
+  Changes: cut 3.6 s from the start, mixed to mono, resampled, faded in and out.
+
+rock-break.wav
+  "Breaking Rock" by themightyglider (https://opengameart.org/content/breaking-rock), from "stone falls and breaks low pitch" by SoundCollectah (https://freesound.org/people/SoundCollectah/sounds/109360/)
+  CC0
+  Changes: mixed to mono, normalized, faded in and out.
+
+church-bells.wav
+  "Church bells - Leverkusen, 2007.oga" by natalie (https://commons.wikimedia.org/wiki/File:Church_bells_-_Leverkusen,_2007.oga)
+  Public domain
+  Changes: cut 5 s from 0:16, mixed to mono, faded in and out.
+
+fire-crackle.wav
+  "Big Branching Fire #1" by Joseph Sardin, BigSoundBank (https://bigsoundbank.com/big-branching-fire-1-s0987.html)
+  CC0
+  Changes: cut 4.4 s from the start, resampled to 44.1 kHz, normalized, faded in and out.
+
+anvil-hammer.wav
+  "Anvil #1" by Pablo Bergel, BigSoundBank (https://bigsoundbank.com/anvil-1-s3589.html)
+  CC0
+  Changes: cut the first three strikes (3.2 s), mixed to mono, resampled to 44.1 kHz, normalized, faded out.
+
+Ok ill finiosh this tomorrow
