@@ -115,6 +115,9 @@
         var L = fullLook(s); if (L) v.look = L;   // full look, not the 7-field subset
         var P = profOf(s);   if (P) v.prof = P;   // real job instead of jobFor()
         var C = celebOf(s);  if (C) v.celeb = C;
+        // Parenting module state (vaccination, diet, sport, acting, school,
+        // bond pressure) lives on the relative too — keep it across a switch.
+        if (s.pg) v.pg = clone(s.pg);
       });
     }
     enrich(h.parents);
@@ -166,7 +169,8 @@
         look:  fullLook(x),
         rel:   x.rel == null ? 60 : x.rel,
         prof:  profOf(x),
-        celeb: celebOf(x)
+        celeb: celebOf(x),
+        pg:    x.pg ? clone(x.pg) : null
       };
       if (x.dead) {
         rec.dead = true;
@@ -220,6 +224,7 @@
       if (p.look)  dst.look  = clone(p.look);
       if (p.prof)  dst.prof  = clone(p.prof);
       if (p.celeb) dst.celeb = clone(p.celeb);
+      if (p.pg)    dst.pg    = clone(p.pg);
     });
 
     // 2b. Re-add the relatives the loader deleted (cousins, nieces/nephews,
@@ -242,6 +247,7 @@
       };
       if (p.prof)  rec.prof  = clone(p.prof);
       if (p.celeb) rec.celeb = clone(p.celeb);
+      if (p.pg)    rec.pg    = clone(p.pg);
       if (p.dead) {
         rec.dead    = true;
         rec.diedAt  = ke.age - (p.diedAgo || 0);
