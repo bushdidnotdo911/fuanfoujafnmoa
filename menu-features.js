@@ -1147,14 +1147,22 @@
 
 /* ---- RPS ---- */
 .arc-root .arc-arena{display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:12px 8px;border-radius:14px;background:linear-gradient(90deg,rgba(63,232,255,.10),rgba(255,79,163,.10));
-  border:1px solid rgba(180,170,255,.24)}
-.arc-root .arc-hand{width:88px;height:88px;display:grid;place-items:center;position:relative}
-.arc-root .arc-hand .arc-sp{width:82px;height:82px}
+  position:relative;overflow:hidden;padding:14px 8px;border-radius:14px;
+  background:linear-gradient(90deg,rgba(63,232,255,.12),rgba(20,16,52,.55) 50%,rgba(255,79,163,.12));
+  border:1px solid rgba(180,170,255,.28);
+  box-shadow:inset 0 0 30px rgba(0,0,0,.45),0 0 22px rgba(90,60,190,.22)}
+.arc-root .arc-arena:before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 22% 55%,rgba(63,232,255,.30),transparent 46%),
+             radial-gradient(circle at 78% 55%,rgba(255,79,163,.30),transparent 46%)}
+.arc-root .arc-arena:after{content:"";position:absolute;left:50%;top:8%;bottom:8%;width:1px;
+  background:linear-gradient(180deg,transparent,rgba(200,190,255,.5),transparent);pointer-events:none}
+.arc-root .arc-hand{width:106px;height:106px;display:grid;place-items:center;position:relative;z-index:1;flex:none}
+.arc-root .arc-hand .arc-sp{width:102px;height:102px;
+  filter:drop-shadow(0 7px 13px rgba(0,0,0,.65)) drop-shadow(0 0 15px rgba(120,130,255,.55))}
 .arc-root .arc-hand.shake{animation:arc-shakeHand .48s ease-in-out infinite}
 .arc-root .arc-hand.reveal{animation:arc-pop .42s cubic-bezier(.2,.8,.3,1.5)}
 .arc-root .arc-hand.cpu .arc-sp{transform:scaleX(-1)}
-.arc-root .arc-vs{text-align:center;flex:1}
+.arc-root .arc-vs{text-align:center;flex:1;position:relative;z-index:1}
 .arc-root .arc-vs .arc-sp{width:46px;height:46px}
 .arc-root .arc-vs b{display:block;font-size:11px;letter-spacing:2px;margin-top:3px;opacity:.8}
 .arc-root .arc-score{display:flex;justify-content:center;gap:22px;margin:12px 0 4px}
@@ -1163,6 +1171,9 @@
 .arc-root .arc-score .arc-pips{margin-top:5px;justify-content:center}
 .arc-root .arc-hist{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:10px}
 .arc-root .arc-hist .arc-sp{width:24px;height:24px}
+.arc-root .arc-btn .arc-sp.sm{width:34px;height:34px;
+  filter:drop-shadow(0 0 7px rgba(120,140,255,.65))}
+.arc-root .arc-btn:has(.arc-sp.sm){padding:7px 12px 7px 8px}
 
 /* ---- Shared keyframes ---- */
 @keyframes arc-float{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-8px) rotate(4deg)}}
