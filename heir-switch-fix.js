@@ -53,8 +53,25 @@
   function fullLook(p) {
     return p && p.look ? clone(p.look) : null;
   }
-  function profOf(p) {
+  function profOf(p, ctx) {
     if (!p) return null;
+    // The outgoing PLAYER is not an NPC: `state.prof` doesn't exist, and a
+    // bare `{job}` here used to overwrite the player's real net worth with
+    // `undefined`, which growMoney() then turned into NaN in the new life.
+    // Always give the player a real, finite money value.
+    if (ctx && p === ctx.state) {
+      let worth = 0;
+      if (typeof ctx.netWorth === "function") {
+        try { worth = Math.round(ctx.netWorth()); } catch (e) { worth = p.money || 0; }
+      } else {
+        worth = p.money || 0;
+      }
+      return {
+        job: (p.job && p.job.t) ||
+             (p.age >= 65 ? "Retired" : p.age >= 18 ? "Unemployed" : "Student"),
+        money: Math.max(0, Number.isFinite(worth) ? worth : 0)
+      };
+    }
     if (p.prof) return clone(p.prof);
     if (p.job) return { job: typeof p.job === "string" ? p.job : (p.job.t || "") };
     return null;
@@ -113,7 +130,7 @@
         var s = find(v.first, v.last);
         if (!s) return;
         var L = fullLook(s); if (L) v.look = L;   // full look, not the 7-field subset
-        var P = profOf(s);   if (P) v.prof = P;   // real job instead of jobFor()
+        var P = profOf(s, ctx); if (P) v.prof = P; // real job AND real money
         var C = celebOf(s);  if (C) v.celeb = C;
         // Parenting module state (vaccination, diet, sport, acting, school,
         // bond pressure) lives on the relative too — keep it across a switch.
@@ -127,14 +144,42 @@
     enrich(h.kids);
     if (h.spouse) enrich([h.spouse]);
 
-    // The old player becomes a parent: keep their real career.
-    if (h.parents && h.parents[0] && !h.parents[0].prof) {
+    // The old player becomes a parent: keep their real career AND their real
+    // money. This must be UNCONDITIONAL — enrich() may already have attached a
+    // job-only prof, and the old `if (!prof)` guard let that clobber net worth.
+    // Also covers snapshots produced by older versions of this module.
+    if (h.parents && h.parents[0]) {
       var past = h.parents[0].past || {};
-      h.parents[0].prof = {
-        job: (state.job && state.job.t) || past.job ||
-             (state.age >= 65 ? "Retired" : state.age >= 18 ? "Unemployed" : "Student"),
-        money: past.worth || 0
-      };
+      var pp = h.parents[0].prof || (h.parents[0].prof = {});
+      if (!Number.isFinite(pp.money)) {
+        var worth = 0;
+        if (typeof ctx.netWorth === "function") {
+          try { worth = Math.round(ctx.netWorth()); } catch (e) { worth = past.worth || 0; }
+        } else {
+          worth = past.worth || 0;
+        }
+        pp.money = Math.max(0, Number.isFinite(worth) ? worth : 0);
+      }
+      if (!pp.job) pp.job = (state.job && state.job.t) || past.job ||
+        (state.age >= 65 ? "Retired" : state.age >= 18 ? "Unemployed" : "Student");
+    }
+
+    // Same guard for the other places the outgoing player is re-created as an
+    // NPC (switching to a parent / sibling / partner).
+    [[h.kids, 0], [h.sibs, 0]].forEach(function (pair) {
+      var list = pair[0], idx = pair[1];
+      if (!list || !list[idx]) return;
+      var rec = list[idx];
+      if (rec && rec.prof && !Number.isFinite(rec.prof.money)) {
+        var w = 0;
+        try { w = Math.round(ctx.netWorth()); } catch (e) { w = state.money || 0; }
+        rec.prof.money = Math.max(0, Number.isFinite(w) ? w : 0);
+      }
+    });
+    if (h.spouse && h.spouse.prof && !Number.isFinite(h.spouse.prof.money)) {
+      var sw = 0;
+      try { sw = Math.round(ctx.netWorth()); } catch (e) { sw = state.money || 0; }
+      h.spouse.prof.money = Math.max(0, Number.isFinite(sw) ? sw : 0);
     }
 
     // Full appearance of the person being switched to. The newborn loader
@@ -168,7 +213,7 @@
         age:   relAge(x),
         look:  fullLook(x),
         rel:   x.rel == null ? 60 : x.rel,
-        prof:  profOf(x),
+        prof:  profOf(x, ctx),
         celeb: celebOf(x),
         pg:    x.pg ? clone(x.pg) : null
       };
@@ -210,6 +255,10 @@
       if (p.look)  dst.look  = clone(p.look);
       if (p.prof)  dst.prof  = clone(p.prof);
       if (p.celeb) dst.celeb = clone(p.celeb);
+      // Older heir snapshots may carry a job-only prof. Never let the
+      // original character's money become undefined / NaN.
+      if (dst.prof && !Number.isFinite(dst.prof.money))
+        dst.prof.money = Math.max(0, Math.round((p.past || {}).worth || 0));
     });
 
     // 2a. Fix look / job / celebrity on the relatives the game DID build,
