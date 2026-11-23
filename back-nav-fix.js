@@ -4,31 +4,35 @@
  *
  * BUG
  * ---
- * The floating bottom-nav "Back" tab remembered only the last *tab* the
- * player tapped. Its click handler did:
+ * The floating bottom-nav "Back" tab remembered only the last *tab* tapped:
  *
  *     const t = nav.querySelector(`.tab[data-tab="${a}"]`); t && t.click();
  *
- * With a === "Activities" that re-runs openActivities() — the MENU — so
- * closing e.g. Crime and tapping Back dumped you on the Activities list
- * instead of returning to Crime.
+ * With a === "Activities" that re-ran openActivities() — the MENU — so
+ * closing Crime / Doctor / Salon / Parenting and tapping Back landed on the
+ * Activities list instead of returning to the screen you were in.
  *
  * FIX
  * ---
- * Loaded after the game core (all screen renderers already declared). It
- * wraps every top-level screen renderer (any global function whose body sets
- * sTitle.textContent and sBack.onclick), remembers the exact renderer + the
- * arguments it was called with, and makes the Back tab re-open THAT screen.
+ * Loaded after the game core. It wraps every screen entry point, remembers
+ * the exact renderer plus the arguments it was called with, and makes the
+ * Back tab re-open THAT screen.
  *
- * It does not touch any game logic: renderers are called through the original
- * function, with the original arguments, so game state is unchanged. If
- * anything is unexpected (no recorded screen, picker open, dead, re-open
- * throws), it falls back to the game's original handler.
+ * Two kinds of entry points are wrapped:
+ *   1. any global `openXxx()` function (these are the screen openers);
+ *   2. any global function whose body sets sTitle.textContent and
+ *      sBack.onclick (the older, source-based detection).
  *
- * Two additional hard-coded back targets are corrected in game.html by
- * apply_bug_fixes.py:
- *   - Fertility -> Sperm Donors / Surrogates now returns to Fertility
- *   - Horse Market opened from Assets -> Broker returns to Shopping
+ * Doing BOTH matters: several game modules install their own wrappers around
+ * openers (e.g. `openCrime` is wrapped by a later script that calls the
+ * original via `Z.apply(this, arguments)`). Those outer wrappers do not
+ * contain the title/back markers, so source-based detection alone missed
+ * them and the Back tab replayed a stale screen. Recording on an actual
+ * title change catches indirect openers too.
+ *
+ * Nothing in the game logic is touched: the original function is called with
+ * the original arguments. If anything is unexpected (no recorded screen,
+ * picker up, dead, re-open throws), the game's original handler runs.
  */
 (() => {
   "use strict";
@@ -44,29 +48,33 @@
   let last = null;          // { fn, args, title } — the screen we were just in
   let wrapped = 0;
 
-  /* Wrap every screen renderer. Top-level `function NAME(){}` declarations in
-     a classic script are writable properties of window, so replacing them
-     also affects calls made from inside other renderers. */
+  /* Wrap every screen entry point. Top-level `function NAME(){}` declarations
+     in a classic script are writable properties of window, so replacing them
+     also affects calls made from inside other renderers and wrappers. */
   const names = Object.getOwnPropertyNames(window);
   for (const name of names) {
-    let orig, desc;
+    let orig, desc, src = "";
     try {
       orig = window[name];
       desc = Object.getOwnPropertyDescriptor(window, name);
     } catch (e) { continue; }
     if (typeof orig !== "function" || !desc || desc.writable === false) continue;
-    let src;
     try { src = Function.prototype.toString.call(orig); } catch (e) { continue; }
-    if (src.indexOf("sTitle.textContent=") < 0 ||
-        src.indexOf("sBack.onclick=") < 0) continue;
-    // Skip our own wrappers if the file is somehow loaded twice.
-    if (src.indexOf("__BL_BACK_NAV__") >= 0) continue;
+    if (src.indexOf("__BL_BACK_NAV__") >= 0) continue;   // already wrapped
+
+    const isOpener  = /^open[A-Z]/.test(name);
+    const isRenderer = src.indexOf("sTitle.textContent=") >= 0 &&
+                       src.indexOf("sBack.onclick=") >= 0;
+    if (!isOpener && !isRenderer) continue;
 
     try {
       const wrapper = function (...args) {
         "__BL_BACK_NAV__";
+        const before = sTitle.textContent;
         const r = orig.apply(this, args);
-        last = { fn: orig, args, title: sTitle.textContent };
+        // Record only when this call really produced/replaced a screen.
+        if (isRenderer || sTitle.textContent !== before || screen.classList.contains("open"))
+          last = { fn: orig, args, title: sTitle.textContent };
         return r;
       };
       window[name] = wrapper;
@@ -81,7 +89,6 @@
     const usable = last &&
                    backTab.classList.contains("on") &&
                    !screen.classList.contains("open") &&
-                   !document.getElementById("picker") &&
                    !(phone && phone.classList.contains("picking")) &&
                    !(typeof state !== "undefined" && state && state.dead);
     if (!usable) return typeof originalBack === "function"
