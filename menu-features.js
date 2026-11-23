@@ -866,254 +866,1313 @@
   function shortNum(n) { return Math.abs(n) >= 1000000 ? (n / 1000000).toFixed(1) + "m" : Math.round(n).toLocaleString("en-US"); }
 
   /* ------------------------------------------------------------------ *
-   * 8. Arcade — six real, playable mini-games
+   * 8. ARCADE — illustrated, animated, full mini-games
+   * ------------------------------------------------------------------ *
+   * Everything in here uses a bespoke illustrated atlas (arcade/*.png),
+   * CSS 3D animation, real sound cues and persistent scoring. No emoji,
+   * no placeholder text, no full-screen re-renders mid-game.
    * ------------------------------------------------------------------ */
-  const SYMBOLS = ["🍒", "🍋", "🍊", "⭐", "💎", "7️⃣"];
-  function addTokens(n) { cfg.tokens = Math.max(0, num(cfg.tokens) + n); save(); }
-  function best(key, val) { if (val > num(cfg.best[key])) { cfg.best[key] = val; save(); return true; } return false; }
-  function arcadeHead(title) {
-    return `<div class="mf-wrap"><div class="mf-card"><div class="mf-inline">
-      <span class="mf-big" id="mfTokens">${num(cfg.tokens).toLocaleString("en-US")}</span><span class="mf-muted">tokens</span>
-      <span class="mf-muted" style="margin-left:auto">${num(cfg.plays)} plays</span></div></div>`;
+
+  /* 8x5 grid of 160px illustrated icons in arcade/sprites.png */
+  const ARC_SPR = {
+    "coin-h":[0,0], "coin-t":[1,0], "token":[2,0], "trophy":[3,0],
+    "target":[4,0], "bolt":[5,0], "burst":[6,0], "confetti":[7,0],
+    "heart":[0,1], "diamond":[1,1], "club":[2,1], "spade":[3,1],
+    "cardback":[4,1], "joker":[5,1], "chip":[6,1], "dice":[7,1],
+    "cherry":[0,2], "lemon":[1,2], "bell":[2,2], "star":[3,2],
+    "gem":[4,2], "seven":[5,2], "bar":[6,2], "horseshoe":[7,2],
+    "rocket":[0,3], "planet":[1,3], "crown":[2,3], "key":[3,3],
+    "memgem":[4,3], "anchor":[5,3], "compass":[6,3], "moon":[7,3],
+    "rock":[0,4], "paper":[1,4], "scissors":[2,4], "versus":[3,4],
+    "win":[4,4], "lose":[5,4], "draw":[6,4], "medal":[7,4],
+  };
+  /* 3x2 grid of 256px covers in arcade/covers.png */
+  const ARC_COVER = {
+    coin:[0,0], higher:[1,0], memory:[2,0],
+    slots:[0,1], reaction:[1,1], rps:[2,1],
+  };
+  const ARC_SLOT = [
+    { k:"cherry", name:"Cherries", w:22, pay:100 },
+    { k:"lemon",  name:"Lemon",    w:20, pay:100 },
+    { k:"bell",   name:"Bell",     w:16, pay:130 },
+    { k:"star",   name:"Star",     w:14, pay:160 },
+    { k:"gem",    name:"Diamond",  w:10, pay:300 },
+    { k:"seven",  name:"Lucky 7",  w:7,  pay:500 },
+    { k:"bar",    name:"BAR",      w:7,  pay:200 },
+    { k:"horseshoe", name:"Horseshoe", w:4, pay:350 },
+  ];
+  const ARC_MEM = ["rocket","planet","crown","key","memgem","anchor","compass","moon"];
+  const ARC_SUITS = ["heart","diamond","club","spade"];
+  const ARC_RANKS = { 11:"J", 12:"Q", 13:"K", 14:"A" };
+  const ARC_GAMES = [
+    { k:"coin",     title:"Coin Flip",          tag:"LUCK",     d:"Call it, build a streak, bank before you bust.",  c:"#ff4fa3" },
+    { k:"higher",   title:"Higher or Lower",    tag:"CARDS",    d:"Read the deck. Push your luck or bank the pot.", c:"#4f8cff" },
+    { k:"memory",   title:"Memory Match",       tag:"SKILL",    d:"Study, flip, combo. Beat the clock and the moves.",c:"#a77bff" },
+    { k:"slots",    title:"Lucky Slots",        tag:"JACKPOT",  d:"Three spinning reels, a real paytable, free spins.",c:"#ff9a3c" },
+    { k:"reaction", title:"Reaction Test",      tag:"SPEED",    d:"Five rounds. Timing, consistency and nerve.",     c:"#3fe8ff" },
+    { k:"rps",      title:"Rock Paper Scissors",tag:"STRATEGY", d:"Best of five against an opponent that learns.",  c:"#43e08a" },
+  ];
+
+  const sp = (name, cls, style) => {
+    const p = ARC_SPR[name] || ARC_SPR.token;
+    return `<i class="arc-sp ${cls || ""}" style="background-position:${(p[0]/7*100).toFixed(4)}% ${(p[1]/4*100).toFixed(4)}%;${style || ""}"></i>`;
+  };
+  const cv = (name, cls, style) => {
+    const p = ARC_COVER[name] || ARC_COVER.coin;
+    return `<i class="arc-cv ${cls || ""}" style="background-position:${(p[0]/2*100).toFixed(4)}% ${(p[1]*100).toFixed(4)}%;${style || ""}"></i>`;
+  };
+
+  function arcCSS() {
+    if (document.getElementById("arcStyles")) return;
+    const s = document.createElement("style");
+    s.id = "arcStyles";
+    s.textContent = `
+.arc-root{--a-cyan:#3fe8ff;--a-pink:#ff4fa3;--a-gold:#ffcf5c;--a-green:#43e08a;--a-red:#ff5d6c;
+  position:relative;margin:-2px -2px 0;padding:10px 12px 22px;color:#edf2ff;
+  background:radial-gradient(120% 70% at 50% -10%,rgba(80,45,160,.55),transparent 70%),
+             linear-gradient(165deg,#101634 0%,#17123f 55%,#0b1026 100%);
+  min-height:calc(100% - 4px);overflow:hidden;font-family:inherit}
+.arc-root *{box-sizing:border-box}
+.arc-root .arc-sp{display:inline-block;width:44px;height:44px;flex:none;
+  background-image:url(arcade/sprites.png);background-size:800% 500%;background-repeat:no-repeat;
+  vertical-align:middle;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))}
+.arc-root .arc-cv{display:block;width:100%;height:100%;
+  background-image:url(arcade/covers.png);background-size:300% 200%;background-repeat:no-repeat}
+.arc-root .arc-sp.sm{width:28px;height:28px}.arc-root .arc-sp.xs{width:20px;height:20px}
+.arc-root .arc-sp.lg{width:64px;height:64px}.arc-root .arc-sp.xl{width:96px;height:96px}
+.arc-root .arc-sp.huge{width:128px;height:128px}
+.arc-root h2,.arc-root h3,.arc-root h4{margin:0;color:#fff}
+.arc-root .arc-hero{position:relative;height:132px;border-radius:14px;overflow:hidden;margin-bottom:12px;
+  background:url(arcade/banner.png) center 38%/cover no-repeat;
+  box-shadow:0 8px 28px rgba(0,0,0,.5),inset 0 0 0 1px rgba(160,140,255,.35)}
+.arc-root .arc-hero:after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(8,10,32,.86),rgba(8,10,32,.15) 62%,rgba(8,10,32,.55)),
+             linear-gradient(0deg,rgba(8,10,32,.9),transparent 60%)}
+.arc-root .arc-heroT{position:absolute;left:16px;bottom:16px;z-index:2}
+.arc-root .arc-heroT b{display:block;font-size:30px;font-weight:900;letter-spacing:4px;
+  color:#fff;text-shadow:0 0 18px rgba(120,110,255,.9),0 3px 8px #000}
+.arc-root .arc-heroT span{display:block;font-size:11px;letter-spacing:2.4px;text-transform:uppercase;
+  color:#b9c6ff;margin-top:3px;font-weight:800}
+.arc-root .arc-hero .arc-heroFx{position:absolute;right:14px;bottom:18px;z-index:2;opacity:.95;
+  animation:arc-float 3s ease-in-out infinite}
+.arc-root .arc-hud{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:12px;
+  border-radius:12px;background:linear-gradient(90deg,rgba(255,207,92,.14),rgba(90,70,190,.12));
+  border:1px solid rgba(255,207,92,.32);box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.arc-root .arc-hud b{font-size:20px;font-weight:900;color:#ffe6a3;font-variant-numeric:tabular-nums}
+.arc-root .arc-hud .arc-lab{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;opacity:.75;font-weight:800}
+.arc-root .arc-hud .arc-right{margin-left:auto;text-align:right}
+.arc-root .arc-games{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:6px 0 14px}
+.arc-root .arc-game{position:relative;border-radius:13px;overflow:hidden;cursor:pointer;
+  height:150px;background:#1a1c44;border:1px solid rgba(150,140,255,.28);
+  box-shadow:0 6px 18px rgba(0,0,0,.38);transition:transform .18s cubic-bezier(.2,.8,.3,1.3),box-shadow .18s}
+.arc-root .arc-game:hover,.arc-root .arc-game:active{transform:translateY(-3px) scale(1.015);
+  box-shadow:0 12px 28px rgba(0,0,0,.55),0 0 0 1px rgba(160,150,255,.6)}
+.arc-root .arc-game .arc-cv{position:absolute;inset:0;transition:transform .35s ease}
+.arc-root .arc-game:hover .arc-cv{transform:scale(1.08)}
+.arc-root .arc-game:after{content:"";position:absolute;inset:0;
+  background:linear-gradient(0deg,rgba(6,8,26,.94) 0%,rgba(6,8,26,.62) 38%,rgba(6,8,26,.04) 72%)}
+.arc-root .arc-game .arc-gInfo{position:absolute;left:10px;right:10px;bottom:9px;z-index:2}
+.arc-root .arc-game .arc-gInfo b{display:block;font-size:13px;font-weight:900;line-height:1.2;text-shadow:0 2px 6px #000}
+.arc-root .arc-game .arc-gInfo span{display:block;font-size:10px;opacity:.78;margin-top:2px}
+.arc-root .arc-game .arc-tag{position:absolute;top:8px;left:8px;z-index:2;font-size:9px;font-weight:900;
+  letter-spacing:1.2px;padding:3px 7px;border-radius:999px;background:rgba(8,10,32,.72);
+  border:1px solid rgba(255,255,255,.28);color:#fff}
+.arc-root .arc-game .arc-best{position:absolute;top:8px;right:8px;z-index:2;font-size:9px;font-weight:900;
+  padding:3px 7px;border-radius:999px;background:rgba(255,207,92,.9);color:#241a04}
+.arc-root .arc-sec{font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;
+  color:#9aa9e0;margin:14px 2px 8px;display:flex;align-items:center;gap:8px}
+.arc-root .arc-sec:after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(150,140,255,.45),transparent)}
+.arc-root .arc-panel{border-radius:13px;padding:12px;margin:8px 0;
+  background:linear-gradient(150deg,rgba(255,255,255,.075),rgba(255,255,255,.025));
+  border:1px solid rgba(150,140,255,.24);box-shadow:0 5px 20px rgba(0,0,0,.28)}
+.arc-root .arc-panel.flat{padding:10px 12px}
+.arc-root .arc-title{font-size:16px;font-weight:900;letter-spacing:.4px}
+.arc-root .arc-sub{font-size:11.5px;line-height:1.55;opacity:.76;margin:5px 0 9px}
+.arc-root .arc-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.arc-root .arc-row.tight{gap:5px}
+.arc-root .arc-btn{appearance:none;border:1px solid rgba(180,170,255,.4);border-radius:10px;
+  padding:9px 13px;font:inherit;font-size:12px;font-weight:900;letter-spacing:.4px;cursor:pointer;
+  color:#eef2ff;background:linear-gradient(160deg,rgba(110,95,220,.42),rgba(60,50,140,.42));
+  box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14);
+  transition:transform .12s,filter .16s,box-shadow .12s}
+.arc-root .arc-btn:hover{filter:brightness(1.22)}
+.arc-root .arc-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.arc-root .arc-btn:disabled{opacity:.42;cursor:not-allowed;filter:grayscale(.5)}
+.arc-root .arc-btn.primary{background:linear-gradient(160deg,#ff6bb2,#a32b8c);border-color:#ff9ccd}
+.arc-root .arc-btn.gold{background:linear-gradient(160deg,#ffdb7a,#c5841d);border-color:#ffe6a8;color:#2a1c04}
+.arc-root .arc-btn.ghost{background:rgba(255,255,255,.07)}
+.arc-root .arc-btn.sm{padding:6px 10px;font-size:11px;border-radius:8px}
+.arc-root .arc-btn.icon{padding:6px;line-height:0}
+.arc-root .arc-seg{display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid rgba(180,170,255,.36)}
+.arc-root .arc-seg .arc-btn{border:0;border-radius:0;box-shadow:none;background:rgba(255,255,255,.06)}
+.arc-root .arc-seg .arc-btn.on{background:linear-gradient(160deg,#ffdb7a,#c5841d);color:#2a1c04}
+.arc-root .arc-chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:900;
+  padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.09);
+  border:1px solid rgba(180,170,255,.3)}
+.arc-root .arc-chip.on{background:rgba(67,224,138,.2);border-color:#43e08a;color:#b8ffd6}
+.arc-root .arc-out{min-height:26px;font-size:13px;font-weight:900;text-align:center;margin-top:9px;
+  letter-spacing:.2px;transition:opacity .2s}
+.arc-root .arc-out.good{color:#8bffb8;text-shadow:0 0 14px rgba(67,224,138,.55)}
+.arc-root .arc-out.bad{color:#ff9aa4;text-shadow:0 0 14px rgba(255,93,108,.5)}
+.arc-root .arc-out.info{color:#bcd2ff}
+.arc-root .arc-bar{height:8px;border-radius:6px;background:rgba(255,255,255,.11);overflow:hidden;margin:7px 0}
+.arc-root .arc-bar > u{display:block;height:100%;border-radius:6px;
+  background:linear-gradient(90deg,#3fe8ff,#a77bff,#ff4fa3);transition:width .4s ease}
+.arc-root .arc-bar.gold > u{background:linear-gradient(90deg,#ffe6a3,#ffb03c)}
+.arc-root .arc-bar.green > u{background:linear-gradient(90deg,#43e08a,#b8ffd6)}
+.arc-root .arc-pips{display:flex;gap:5px;align-items:center}
+.arc-root .arc-pip{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.28)}
+.arc-root .arc-pip.on{background:linear-gradient(160deg,#ffe6a3,#ffb03c);border-color:#ffe6a3;
+  box-shadow:0 0 9px rgba(255,190,70,.8)}
+.arc-root .arc-table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:7px}
+.arc-root .arc-table td,.arc-root .arc-table th{padding:6px 5px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left}
+.arc-root .arc-table th{font-size:9px;letter-spacing:1.2px;text-transform:uppercase;opacity:.6;font-weight:900}
+.arc-root .arc-table td:last-child,.arc-root .arc-table th:last-child{text-align:right}
+.arc-root .arc-fx{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:30}
+.arc-root .arc-conf{position:absolute;width:9px;height:15px;top:-20px;opacity:.95;
+  animation:arc-fall linear forwards}
+.arc-root .arc-flash{position:absolute;inset:0;opacity:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.7),transparent 60%)}
+.arc-root .arc-flash.go{animation:arc-flash .5s ease-out}
+.arc-root .arc-back{display:flex;gap:7px;align-items:center;margin-top:14px;flex-wrap:wrap}
+
+/* ---- Coin flip ---- */
+.arc-root .arc-coinStage{position:relative;height:168px;display:grid;place-items:center;perspective:700px}
+.arc-root .arc-coin3d{position:relative;width:124px;height:124px;transform-style:preserve-3d;
+  --arc-mid:900deg;--arc-final:1800deg}
+.arc-root .arc-coin3d.spin{animation:arc-toss 1.18s cubic-bezier(.26,.62,.24,1) forwards}
+.arc-root .arc-face{position:absolute;inset:0;backface-visibility:hidden;
+  background-image:url(arcade/sprites.png);background-size:800% 500%;background-repeat:no-repeat;
+  background-position:0% 0%;filter:drop-shadow(0 10px 18px rgba(0,0,0,.55))}
+.arc-root .arc-face.back{background-position:14.2857% 0%;transform:rotateY(180deg)}
+.arc-root .arc-coinShadow{position:absolute;bottom:8px;width:96px;height:15px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(0,0,0,.6),transparent 70%);
+  animation:arc-shadow 1.18s cubic-bezier(.26,.62,.24,1) forwards}
+.arc-root .arc-streak{display:flex;gap:4px;justify-content:center;margin:6px 0}
+.arc-root .arc-streak i{width:26px;height:6px;border-radius:4px;background:rgba(255,255,255,.14)}
+.arc-root .arc-streak i.on{background:linear-gradient(90deg,#ffb03c,#ffe6a3);box-shadow:0 0 9px rgba(255,180,60,.8)}
+.arc-root .arc-history{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+
+/* ---- Cards ---- */
+.arc-root .arc-cardStage{display:flex;align-items:center;justify-content:center;gap:18px;height:170px;perspective:800px}
+.arc-root .arc-card{position:relative;width:104px;height:148px;transform-style:preserve-3d;
+  transition:transform .55s cubic-bezier(.2,.8,.3,1)}
+.arc-root .arc-card.flip{transform:rotateY(180deg)}
+.arc-root .arc-card .arc-f,.arc-root .arc-card .arc-b{position:absolute;inset:0;border-radius:10px;
+  backface-visibility:hidden;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.55)}
+.arc-root .arc-card .arc-f{border:2px solid rgba(200,180,255,.7);
+  background-image:url(arcade/sprites.png);background-size:800% 500%;background-position:57.1429% 25%}
+.arc-root .arc-card .arc-b{transform:rotateY(180deg);background:linear-gradient(160deg,#fdfbff,#dfe4f5);
+  border:2px solid #fff;color:#171c3a;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px}
+.arc-root .arc-card .arc-b .arc-rank{font-size:34px;font-weight:900;line-height:1}
+.arc-root .arc-card .arc-b .arc-sp{width:40px;height:40px;filter:none}
+.arc-root .arc-card.deal{animation:arc-deal .5s cubic-bezier(.2,.8,.3,1.2)}
+.arc-root .arc-prob{display:flex;gap:6px;margin-top:8px}
+.arc-root .arc-prob > div{flex:1;text-align:center;border-radius:9px;padding:7px 4px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(180,170,255,.22)}
+.arc-root .arc-prob b{display:block;font-size:15px;font-weight:900;color:#ffe6a3}
+.arc-root .arc-prob span{font-size:9px;letter-spacing:.8px;text-transform:uppercase;opacity:.7}
+
+/* ---- Memory ---- */
+.arc-root .arc-memGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:10px 0}
+.arc-root .arc-mem{position:relative;aspect-ratio:1;perspective:600px;cursor:pointer}
+.arc-root .arc-mem .arc-in{position:absolute;inset:0;transform-style:preserve-3d;
+  transition:transform .42s cubic-bezier(.2,.8,.3,1.15)}
+.arc-root .arc-mem.flip .arc-in,.arc-root .arc-mem.done .arc-in{transform:rotateY(180deg)}
+.arc-root .arc-mem .arc-mf,.arc-root .arc-mem .arc-mb{position:absolute;inset:0;border-radius:9px;
+  backface-visibility:hidden;display:grid;place-items:center}
+.arc-root .arc-mem .arc-mf{background:linear-gradient(150deg,#3a2a7a,#1b1748);
+  border:1px solid rgba(180,160,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.16)}
+.arc-root .arc-mem .arc-mf .arc-sp{width:64%;height:64%;opacity:.92}
+.arc-root .arc-mem .arc-mb{transform:rotateY(180deg);background:linear-gradient(150deg,#28315f,#111634);
+  border:1px solid rgba(120,200,255,.4)}
+.arc-root .arc-mem .arc-mb .arc-sp{width:78%;height:78%}
+.arc-root .arc-mem.done .arc-mb{border-color:#43e08a;box-shadow:0 0 16px rgba(67,224,138,.5);
+  animation:arc-match .5s ease-out}
+.arc-root .arc-mem.wrong{animation:arc-shake .38s ease}
+.arc-root .arc-mem.hint .arc-in{transform:rotateY(180deg)}
+.arc-root .arc-timer{font-variant-numeric:tabular-nums;font-weight:900;color:#bcd2ff}
+
+/* ---- Slots ---- */
+.arc-root .arc-machine{border-radius:16px;padding:12px;background:linear-gradient(160deg,#2a1c60,#120e34);
+  border:2px solid rgba(255,207,92,.5);box-shadow:0 0 30px rgba(160,90,255,.35),inset 0 2px 0 rgba(255,255,255,.14)}
+.arc-root .arc-lights{display:flex;justify-content:space-around;margin-bottom:10px}
+.arc-root .arc-lights i{width:9px;height:9px;border-radius:50%;background:#ffcf5c;
+  box-shadow:0 0 9px #ffcf5c;animation:arc-blink 1.1s infinite alternate}
+.arc-root .arc-reels{display:flex;gap:7px;justify-content:center;background:#080a20;
+  border-radius:10px;padding:8px 6px;border:1px solid rgba(255,255,255,.16);
+  box-shadow:inset 0 4px 12px rgba(0,0,0,.8)}
+.arc-root .arc-reel{width:88px;height:88px;overflow:hidden;border-radius:8px;
+  background:linear-gradient(180deg,#1b2050,#0a0c28);position:relative;flex:none}
+.arc-root .arc-reel:after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,.6),transparent 28%,transparent 72%,rgba(0,0,0,.6))}
+.arc-root .arc-strip{display:flex;flex-direction:column;will-change:transform}
+.arc-root .arc-cell{height:88px;flex:none;display:grid;place-items:center}
+.arc-root .arc-cell .arc-sp{width:66px;height:66px}
+.arc-root .arc-reel.win{box-shadow:0 0 0 2px #ffcf5c,0 0 22px rgba(255,207,92,.9);
+  animation:arc-winpulse .6s ease-in-out 3}
+.arc-root .arc-pay{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px}
+.arc-root .arc-pay > div{display:flex;align-items:center;gap:3px;font-size:9.5px;font-weight:900;
+  background:rgba(255,255,255,.06);border-radius:7px;padding:4px 5px}
+.arc-root .arc-pay .arc-sp{width:22px;height:22px}
+
+/* ---- Reaction ---- */
+.arc-root .arc-pad{position:relative;width:100%;height:190px;border-radius:16px;overflow:hidden;
+  display:grid;place-items:center;cursor:pointer;user-select:none;
+  border:2px solid rgba(255,255,255,.22);transition:background .16s,box-shadow .16s,transform .1s}
+.arc-root .arc-pad:active{transform:scale(.985)}
+.arc-root .arc-pad.idle{background:linear-gradient(160deg,#212a5e,#111634)}
+.arc-root .arc-pad.wait{background:linear-gradient(160deg,#5c1c34,#2a1020);
+  box-shadow:inset 0 0 40px rgba(255,80,100,.28)}
+.arc-root .arc-pad.go{background:linear-gradient(160deg,#1c7a4c,#0b3a26);
+  box-shadow:0 0 34px rgba(67,224,138,.65),inset 0 0 40px rgba(120,255,180,.35)}
+.arc-root .arc-pad.bad{background:linear-gradient(160deg,#7a1c1c,#3a0e0e)}
+.arc-root .arc-padMsg{position:relative;z-index:3;text-align:center;font-weight:900;letter-spacing:1px}
+.arc-root .arc-padMsg b{display:block;font-size:25px;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.6)}
+.arc-root .arc-padMsg span{display:block;font-size:11px;opacity:.8;margin-top:4px;letter-spacing:1.5px;text-transform:uppercase}
+.arc-root .arc-padRing{position:absolute;width:70px;height:70px;border-radius:50%;
+  border:3px solid rgba(255,255,255,.5);opacity:0}
+.arc-root .arc-pad.wait .arc-padRing{animation:arc-ring 1.4s ease-out infinite}
+.arc-root .arc-pad.go .arc-padRing{animation:arc-ringGo .45s ease-out}
+.arc-root .arc-lights3{display:flex;gap:8px;justify-content:center;margin:10px 0}
+.arc-root .arc-lights3 i{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.3);transition:all .15s}
+.arc-root .arc-lights3 i.r{background:#ff5d6c;box-shadow:0 0 12px #ff5d6c}
+.arc-root .arc-lights3 i.a{background:#ffcf5c;box-shadow:0 0 12px #ffcf5c}
+.arc-root .arc-lights3 i.g{background:#43e08a;box-shadow:0 0 12px #43e08a}
+.arc-root .arc-bigNum{font-size:38px;font-weight:900;letter-spacing:1px;text-align:center;
+  color:#ffe6a3;text-shadow:0 0 22px rgba(255,207,92,.55);font-variant-numeric:tabular-nums}
+
+/* ---- RPS ---- */
+.arc-root .arc-arena{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 8px;border-radius:14px;background:linear-gradient(90deg,rgba(63,232,255,.10),rgba(255,79,163,.10));
+  border:1px solid rgba(180,170,255,.24)}
+.arc-root .arc-hand{width:88px;height:88px;display:grid;place-items:center;position:relative}
+.arc-root .arc-hand .arc-sp{width:82px;height:82px}
+.arc-root .arc-hand.shake{animation:arc-shakeHand .48s ease-in-out infinite}
+.arc-root .arc-hand.reveal{animation:arc-pop .42s cubic-bezier(.2,.8,.3,1.5)}
+.arc-root .arc-hand.cpu .arc-sp{transform:scaleX(-1)}
+.arc-root .arc-vs{text-align:center;flex:1}
+.arc-root .arc-vs .arc-sp{width:46px;height:46px}
+.arc-root .arc-vs b{display:block;font-size:11px;letter-spacing:2px;margin-top:3px;opacity:.8}
+.arc-root .arc-score{display:flex;justify-content:center;gap:22px;margin:12px 0 4px}
+.arc-root .arc-score > div{text-align:center}
+.arc-root .arc-score span{display:block;font-size:9px;letter-spacing:1.6px;text-transform:uppercase;opacity:.7;font-weight:900}
+.arc-root .arc-score .arc-pips{margin-top:5px;justify-content:center}
+.arc-root .arc-hist{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.arc-root .arc-hist .arc-sp{width:24px;height:24px}
+
+/* ---- Shared keyframes ---- */
+@keyframes arc-float{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-8px) rotate(4deg)}}
+@keyframes arc-fall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(560px) rotate(760deg);opacity:0}}
+@keyframes arc-flash{0%{opacity:.85}100%{opacity:0}}
+@keyframes arc-pop{0%{transform:scale(.35);opacity:0}70%{transform:scale(1.16);opacity:1}100%{transform:scale(1)}}
+@keyframes arc-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+@keyframes arc-blink{from{opacity:.35}to{opacity:1}}
+@keyframes arc-winpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.5)}}
+@keyframes arc-toss{0%{transform:translateY(0) rotateY(0deg)}
+  48%{transform:translateY(-76px) rotateY(var(--arc-mid))}
+  100%{transform:translateY(0) rotateY(var(--arc-final))}}
+@keyframes arc-shadow{0%{transform:scale(1);opacity:.75}48%{transform:scale(.55);opacity:.25}100%{transform:scale(1);opacity:.75}}
+@keyframes arc-deal{0%{transform:translate(70px,-40px) rotate(18deg) scale(.8);opacity:0}
+  100%{transform:translate(0,0) rotate(0) scale(1);opacity:1}}
+@keyframes arc-match{0%{box-shadow:0 0 0 rgba(67,224,138,0)}50%{box-shadow:0 0 24px rgba(67,224,138,.95)}100%{box-shadow:0 0 16px rgba(67,224,138,.5)}}
+@keyframes arc-ring{0%{transform:scale(.4);opacity:.8}100%{transform:scale(3.2);opacity:0}}
+@keyframes arc-ringGo{0%{transform:scale(.5);opacity:1}100%{transform:scale(2.6);opacity:0}}
+@keyframes arc-shakeHand{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+@keyframes arc-spinBlur{0%{filter:blur(0)}50%{filter:blur(2.5px)}100%{filter:blur(0)}}
+@keyframes arc-shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+`;
+    document.head.appendChild(s);
   }
+
+  /* ---- session lifecycle ---------------------------------------------- */
+  let arcTimers = [], arcRafs = [], arcInterval = null;
+  function arcLater(fn, ms) {
+    const id = setTimeout(() => {
+      arcTimers = arcTimers.filter((x) => x !== id);
+      try { fn(); } catch (e) {}
+    }, ms);
+    arcTimers.push(id); return id;
+  }
+  function arcFrame(fn) {
+    const id = requestAnimationFrame((t) => {
+      arcRafs = arcRafs.filter((x) => x !== id);
+      try { fn(t); } catch (e) {}
+    });
+    arcRafs.push(id); return id;
+  }
+  function arcEvery(fn, ms) { arcStopInterval(); arcInterval = setInterval(() => { try { fn(); } catch (e) {} }, ms); }
+  function arcStopInterval() { if (arcInterval) { clearInterval(arcInterval); arcInterval = null; } }
+  function arcCleanup() {
+    arcTimers.forEach(clearTimeout); arcTimers = [];
+    arcRafs.forEach(cancelAnimationFrame); arcRafs = [];
+    arcStopInterval();
+  }
+
+  function arcSound(k) {
+    try { play(k); } catch (e) {}
+  }
+  function arcVibe(p) { try { vibe(p); } catch (e) {} }
+  function arcFxHost() { return $("#arcFx"); }
+  function arcConfetti(n, colors) {
+    const host = arcFxHost(); if (!host) return;
+    const cs = colors || ["#ff4fa3", "#3fe8ff", "#ffcf5c", "#43e08a", "#a77bff", "#ffffff"];
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement("i");
+      d.className = "arc-conf";
+      d.style.left = (2 + Math.random() * 96) + "%";
+      d.style.background = cs[i % cs.length];
+      d.style.animationDuration = (1.0 + Math.random() * 1.1) + "s";
+      d.style.animationDelay = (Math.random() * .45) + "s";
+      d.style.width = (6 + Math.random() * 7) + "px";
+      d.style.height = (10 + Math.random() * 9) + "px";
+      d.style.borderRadius = Math.random() < .3 ? "50%" : "2px";
+      host.appendChild(d);
+      arcLater(() => { try { d.remove(); } catch (e) {} }, 2600);
+    }
+  }
+  function arcFlash() {
+    const f = $("#arcFlash"); if (!f) return;
+    f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
+  }
+  function arcFxLayer() {
+    return `<div class="arc-fx" id="arcFx"><i class="arc-flash" id="arcFlash"></i></div>`;
+  }
+  function arcOut(id, html, kind) {
+    const el = $(id); if (!el) return;
+    el.className = "arc-out " + (kind || "");
+    el.innerHTML = html;
+    el.style.animation = "none"; void el.offsetWidth;
+    el.style.animation = "arc-pop .34s cubic-bezier(.2,.8,.3,1.4)";
+  }
+
+  /* ---- persistence helpers (names kept for the rest of the module) ---- */
+  function addTokens(n) { cfg.tokens = Math.max(0, num(cfg.tokens) + n); save(); }
+  function best(key, val) {
+    if (val > num(cfg.best[key])) { cfg.best[key] = val; save(); return true; }
+    return false;
+  }
+  function arcStats() {
+    if (!cfg.arcStats || typeof cfg.arcStats !== "object")
+      cfg.arcStats = { wins: 0, losses: 0, jackpots: 0, bestStreak: 0, perfect: 0 };
+    return cfg.arcStats;
+  }
+  function arcWin(n) { const s = arcStats(); s.wins += n || 1; save(); }
+  function arcLoss(n) { const s = arcStats(); s.losses += n || 1; save(); }
+
+  /* ---- shared chrome --------------------------------------------------- */
+  function arcadeHead(title) {
+    arcCSS();
+    return `<div class="arc-root">
+      ${arcFxLayer()}
+      <div class="arc-hud">
+        ${sp("token", "sm")}
+        <div><div class="arc-lab">Tokens</div><b id="arcTokens">${num(cfg.tokens).toLocaleString("en-US")}</b></div>
+        <div class="arc-right"><div class="arc-lab">${num(cfg.plays)} plays</div>
+          <span class="arc-chip" id="arcBest">${esc(title || "Arcade")}</span></div>
+      </div>`;
+  }
+  function arcFoot(id) {
+    return `<div class="arc-back"><button class="arc-btn ghost sm" id="${id || "arcBack"}">Back to Arcade</button></div>
+      </div>`;
+  }
+  function arcBindBack(id) {
+    const b = $("#" + (id || "arcBack"));
+    if (b) b.onclick = () => { arcCleanup(); play("choice"); openArcade(); };
+  }
+  function arcSyncTokens(animate, delta) {
+    const el = $("#arcTokens"); if (!el) return;
+    const target = num(cfg.tokens);
+    if (!animate || typeof requestAnimationFrame !== "function") {
+      el.textContent = target.toLocaleString("en-US"); return;
+    }
+    const from = num(el.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const t0 = performance.now(), dur = 520;
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(from + (target - from) * e).toLocaleString("en-US");
+      if (p < 1) arcFrame(step);
+    };
+    arcFrame(step);
+    if (delta) {
+      el.style.color = delta > 0 ? "#8bffb8" : "#ff9aa4";
+      arcLater(() => { try { el.style.color = ""; } catch (e) {} }, 700);
+    }
+  }
+  function arcScreen(title, body, back, backId) {
+    showScreen(title, arcadeHead(title) + body + arcFoot(backId), back || openArcade);
+    arcBindBack(backId);
+    arcSyncTokens(false);
+  }
+
+  /* ---- HUB ------------------------------------------------------------- */
   function cashOut() {
     const L = life();
     if (L.cashYear === year()) { notify("Arcade", "You've already cashed out tokens this year. Age up and come back."); return; }
     if (num(cfg.tokens) < 10) { notify("Arcade", "You need at least 10 tokens to cash out."); return; }
-    const rate = 10, amount = num(cfg.tokens) * rate;
+    const amount = num(cfg.tokens) * 10;
     cfg.tokens = 0; L.cashYear = year(); save();
     money(amount);
     sayIt(`I cashed in my arcade tokens for ${fmt(amount)}.`);
-    vibe([20, 40, 20]);
+    arcVibe([20, 40, 20]);
+    arcSound("coins");
     notify("Cashed out!", `${fmt(amount)} was added to your bank balance. (10 tokens = $10, once per year)`);
     openArcade();
   }
   function openArcade() {
-    const games = [
-      ["coin", "🪙", "Coin Flip", "Call heads or tails. Win 12 tokens."],
-      ["higher", "🔢", "Higher or Lower", "Guess the next card. Build a streak."],
-      ["memory", "🧠", "Memory Match", "Find all 8 pairs. Fewer moves = more tokens."],
-      ["slots", "🎰", "Lucky Slots", "Spin 3 reels. 5 tokens a spin."],
-      ["reaction", "⚡", "Reaction Test", "Tap the moment it turns green."],
-      ["rps", "✊", "Rock Paper Scissors", "First to 3 wins takes 40 tokens."],
-    ];
-    showScreen("ARCADE", arcadeHead("Arcade") + `
-      <div class="mf-lead">Win tokens, then cash them out for real in-game money. Every game saves its best score.</div>
-      <div class="sec">Games</div>
-      ${games.map(([k, e, t, d]) => row("", t, `${e} ${d}`, `data-mf-game="${k}"`)).join("")}
-      <div class="sec">Tokens</div>
-      ${row(ico("coin"), "Cash out", "10 tokens = $10, once per game year", 'data-mf-game="cash"')}
-      <div class="mf-card"><h4>Best scores</h4><table class="mf-table">
-        ${games.map(([k, , t]) => `<tr><td>${esc(t)}</td><td>${cfg.best[k] ? esc(cfg.best[k]) : "—"}</td></tr>`).join("")}
-      </table></div>
+    arcCleanup();
+    arcCSS();
+    const s = arcStats();
+    const games = ARC_GAMES.map((g) => `
+      <div class="arc-game" data-mf-game="${g.k}" style="--gc:${g.c}">
+        ${cv(g.k)}
+        <span class="arc-tag" style="border-color:${g.c}66;color:${g.c}">${g.tag}</span>
+        ${cfg.best[g.k] ? `<span class="arc-best">BEST ${esc(cfg.best[g.k])}</span>` : ""}
+        <div class="arc-gInfo"><b>${esc(g.title)}</b><span>${esc(g.d)}</span></div>
+      </div>`).join("");
+    const rows = ARC_GAMES.map((g) =>
+      `<tr><td>${esc(g.title)}</td><td>${cfg.best[g.k] ? esc(cfg.best[g.k]) : "—"}</td></tr>`).join("");
+    showScreen("ARCADE", arcadeHead("ARCADE") + `
+      <div class="arc-hero">
+        <div class="arc-heroT"><b>ARCADE</b><span>Six games · one token economy</span></div>
+        ${sp("trophy", "lg arc-heroFx")}
+      </div>
+      <div class="arc-sec">Games</div>
+      <div class="arc-games">${games}</div>
+      <div class="arc-sec">Tokens</div>
+      <div class="arc-panel flat">
+        <div class="arc-row" style="justify-content:space-between">
+          <div><div class="arc-title">Cash out</div>
+            <div class="arc-sub" style="margin:3px 0 0">10 tokens = $10 in your bank, once per game year.</div></div>
+          <button class="arc-btn gold" data-mf-game="cash">CASH OUT</button>
+        </div>
+      </div>
+      <div class="arc-sec">Records</div>
+      <div class="arc-panel">
+        <div class="arc-row tight">
+          <span class="arc-chip">${num(cfg.plays)} plays</span>
+          <span class="arc-chip">${num(s.wins)} wins</span>
+          <span class="arc-chip">${num(s.jackpots)} jackpots</span>
+          <span class="arc-chip">streak ${num(s.bestStreak)}</span>
+        </div>
+        <table class="arc-table"><thead><tr><th>Game</th><th>Best</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>
     </div>`, openSettingsScreen);
     $$("[data-mf-game]").forEach((el) => el.onclick = () => {
       play("choice"); const g = el.dataset.mfGame;
       ({ coin: gameCoin, higher: gameHigher, memory: gameMemory, slots: gameSlots,
          reaction: gameReaction, rps: gameRPS, cash: cashOut }[g] || openArcade)();
     });
+    arcSyncTokens(false);
   }
+
+  /* ================================================================== *
+   * GAME 1 — COIN FLIP : stakes, streak multiplier, bank-or-bust
+   * ================================================================== */
   function gameCoin() {
-    showScreen("COIN FLIP", arcadeHead("Coin Flip") + `<div class="mf-card">
-      <h4>Call it</h4><div class="mf-lead">Heads or tails? A correct call wins 12 tokens.</div>
-      <div class="mf-reels"><div class="mf-reel" id="mfCoin">🪙</div></div>
-      <div class="mf-inline"><button class="mf-btn" data-mf-call="h">Heads</button><button class="mf-btn" data-mf-call="t">Tails</button></div>
-      <div class="mf-big" id="mfCoinOut"></div></div>
-      <div class="mf-inline"><button class="mf-btn" id="mfCoinBack">Back to Arcade</button></div></div>`, openArcade);
-    $$("[data-mf-call]").forEach((b) => b.onclick = () => {
-      const call = b.dataset.mfCall, res = Math.random() < .5 ? "h" : "t";
-      const el = $("#mfCoin"); if (el) el.textContent = res === "h" ? "🙂" : "🦅";
-      const out = $("#mfCoinOut");
-      cfg.plays++; const win = call === res;
-      if (win) { addTokens(12); const streak = num(cfg.best.coin) + 1; best("coin", streak); }
-      else { cfg.best.coin = 0; }
-      save();
-      if (out) out.innerHTML = win ? `<span style="color:#43c46b">Correct! +12 tokens · streak ${cfg.best.coin}</span>` : `<span style="color:#e04343">Wrong! It was ${res === "h" ? "heads" : "tails"}. Streak reset.</span>`;
-      vibe(win ? [20, 40, 20] : 12);
-      const t = $("#mfTokens"); if (t) t.textContent = num(cfg.tokens).toLocaleString("en-US");
-      $$("[data-mf-call]").forEach((x) => x.disabled = false);
-      render();
+    arcCleanup();
+    const L = life();
+    const st = L.coin || (L.coin = { streak: 0, stake: 10, history: [], best: 0 });
+    const stakes = [5, 10, 25, 50];
+    const seg = stakes.map((v) => `<button class="arc-btn ${st.stake === v ? "on" : ""}" data-arc-stake="${v}">${v}</button>`).join("");
+    const hist = st.history.slice(-8).map((h) => sp(h.res === "h" ? "coin-h" : "coin-t", "xs")).join("") || "";
+    arcScreen("COIN FLIP", `
+      <div class="arc-panel">
+        <div class="arc-row" style="justify-content:space-between">
+          <div class="arc-title">Call the toss</div><span class="arc-chip" id="arcMult">x1.0 payout</span>
+        </div>
+        <div class="arc-sub">Stake tokens, call heads or tails. Each correct call raises your multiplier —
+          bank the streak before a loss wipes it.</div>
+        <div class="arc-coinStage">
+          <div class="arc-coinShadow" id="arcCoinShadow"></div>
+          <div class="arc-coin3d" id="arcCoin">
+            <i class="arc-face front"></i><i class="arc-face back"></i>
+          </div>
+        </div>
+        <div class="arc-streak" id="arcStreak">${Array.from({length:6},(_,i)=>`<i class="${i<st.streak?"on":""}"></i>`).join("")}</div>
+        <div class="arc-row" style="justify-content:center"><span class="arc-lab arc-chip">Stake</span>
+          <span class="arc-seg">${seg}</span></div>
+        <div class="arc-row" style="justify-content:center">
+          <button class="arc-btn primary" data-mf-call="h">${sp("coin-h","xs")} HEADS</button>
+          <button class="arc-btn" data-mf-call="t">${sp("coin-t","xs")} TAILS</button>
+          <button class="arc-btn gold" id="arcBank">BANK STREAK</button>
+        </div>
+        <div class="arc-out" id="arcCoinOut"></div>
+        <div class="arc-history" id="arcHistory">${hist}</div>
+      </div>`, openArcade);
+
+    const coin = $("#arcCoin"), shadow = $("#arcCoinShadow");
+    const out = "#arcCoinOut";
+    const mult = () => 1 + Math.min(st.streak, 8) * .5;
+    const refresh = () => {
+      const m = $("#arcMult"); if (m) m.textContent = "x" + mult().toFixed(1) + " payout";
+      const sc = $("#arcStreak");
+      if (sc) sc.innerHTML = Array.from({length:6},(_,i)=>`<i class="${i<Math.min(st.streak,6)?"on":""}"></i>`).join("");
+      $$('[data-arc-stake]').forEach((b) => b.classList.toggle("on", +b.dataset.arcStake === st.stake));
+      const bank = $("#arcBank"); if (bank) bank.disabled = st.streak < 1;
+    };
+    $$('[data-arc-stake]').forEach((b) => b.onclick = () => {
+      st.stake = +b.dataset.arcStake; save(); arcSound("choice"); refresh();
     });
-    const b = $("#mfCoinBack"); if (b) b.onclick = () => { play("choice"); openArcade(); };
+    const bank = $("#arcBank");
+    if (bank) bank.onclick = () => {
+      if (st.streak < 1) return;
+      const bonus = st.streak * 12;
+      addTokens(bonus); arcWin();
+      arcOut(out, `Streak banked — <b>+${bonus} tokens</b>`, "good");
+      arcConfetti(18); arcFlash(); arcSound("coins"); arcVibe([20,40,20]);
+      st.streak = 0; save(); refresh(); arcSyncTokens(true, bonus);
+    };
+    $$('[data-mf-call]').forEach((b) => b.onclick = () => {
+      // Synchronous bookkeeping so the game state is consistent immediately.
+      cfg.plays++; save();
+      if (num(cfg.tokens) < st.stake) {
+        notify("Coin Flip", `You need ${st.stake} tokens for that stake. Lower it or win some in another game.`);
+        arcOut(out, "Not enough tokens", "bad"); arcSound("buzzer"); return;
+      }
+      const call = b.dataset.mfCall;
+      const res = Math.random() < .5 ? "h" : "t";
+      const turns = 10 + (res === "t" ? 1 : 0) + rnd(0, 2) * 2;
+      const mid = 180 * Math.floor(turns / 2);
+      if (coin) {
+        coin.style.setProperty("--arc-mid", mid + "deg");
+        coin.style.setProperty("--arc-final", (turns * 180) + "deg");
+        coin.classList.remove("spin"); void coin.offsetWidth; coin.classList.add("spin");
+      }
+      if (shadow) { shadow.style.animation = "none"; void shadow.offsetWidth; shadow.style.animation = ""; }
+      $$('[data-mf-call]').forEach((x) => x.disabled = true);
+      if (bank) bank.disabled = true;
+      addTokens(-st.stake); arcSyncTokens(true, -st.stake);
+      arcSound("pageFlip"); arcVibe(8);
+      arcOut(out, "Flipping…", "info");
+
+      arcLater(() => {
+        const win = call === res;
+        if (win) {
+          st.streak++;
+          const payout = Math.round(st.stake * mult());
+          addTokens(st.stake + payout);
+          best("coin", st.streak);
+          const s = arcStats(); s.bestStreak = Math.max(num(s.bestStreak), st.streak); save();
+          arcWin();
+          arcOut(out, `${res === "h" ? "HEADS" : "TAILS"} — correct! <b>+${payout} tokens</b> · streak ${st.streak}`, "good");
+          arcSound(st.streak >= 3 ? "casinoWin" : "coins");
+          arcVibe(st.streak >= 3 ? [20,40,20,40] : 12);
+          if (st.streak >= 3) { arcConfetti(10 + st.streak * 3); arcFlash(); }
+          arcSyncTokens(true, st.stake + payout);
+        } else {
+          st.streak = 0; arcLoss();
+          arcOut(out, `${res === "h" ? "HEADS" : "TAILS"} — wrong. Stake lost, streak reset.`, "bad");
+          arcSound("buzzer"); arcVibe([25,30]);
+        }
+        st.history.push({ res, win }); if (st.history.length > 8) st.history.shift();
+        const h = $("#arcHistory");
+        if (h) h.innerHTML = st.history.map((x) => sp(x.res === "h" ? "coin-h" : "coin-t", "xs")).join("");
+        save(); refresh();
+        $$('[data-mf-call]').forEach((x) => x.disabled = false);
+        if (bank) bank.disabled = st.streak < 1;
+        render();
+      }, 1200);
+    });
+    refresh();
+    arcOut(out, st.streak ? `Streak ${st.streak} live — bank it or risk it.` : "Pick a stake and call the toss.", "info");
+  }
+
+  /* ================================================================== *
+   * GAME 2 — HIGHER OR LOWER : real 52-card deck, odds, pot, one swap
+   * ================================================================== */
+  function arcNewDeck() {
+    const d = [];
+    for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) d.push({ r, s });
+    for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; }
+    return d;
+  }
+  function arcCardHTML(c) {
+    const rank = ARC_RANKS[c.r] || c.r;
+    return `<div class="arc-rank" style="color:${c.s === 0 || c.s === 1 ? "#d02a4e" : "#171c3a"}">${rank}</div>
+      ${sp(ARC_SUITS[c.s])}`;
   }
   function gameHigher() {
-    const L = life(); L.hl = L.hl || { cur: rnd(1, 13), streak: 0 };
-    const st = L.hl;
-    showScreen("HIGHER OR LOWER", arcadeHead("Higher or Lower") + `<div class="mf-card">
-      <h4>Current card</h4><div class="mf-reels"><div class="mf-reel" id="mfHL">${st.cur}</div></div>
-      <div class="mf-lead">Is the next card higher or lower? Each correct guess adds 8 tokens to the pot.</div>
-      <div class="mf-inline"><button class="mf-btn" data-mf-hl="up">Higher ▲</button><button class="mf-btn" data-mf-hl="down">Lower ▼</button>
-        <button class="mf-btn" data-mf-hl="stop">Take the pot (${num(st.streak) * 8})</button></div>
-      <div class="mf-big" id="mfHLOut"></div></div>
-      <div class="mf-inline"><button class="mf-btn" id="mfHLBack">Back to Arcade</button></div></div>`, openArcade);
-    $$("[data-mf-hl]").forEach((b) => b.onclick = () => {
-      const g = b.dataset.mfHl, out = $("#mfHLOut");
-      if (g === "stop") {
-        const win = num(st.streak) * 8; addTokens(win); cfg.plays++;
-        best("higher", num(st.streak)); st.streak = 0; st.cur = rnd(1, 13); save();
-        if (out) out.innerHTML = `<span style="color:#43c46b">You banked ${win} tokens.</span>`;
-        $$("[data-mf-hl]").forEach((x) => { if (x.dataset.mfHl !== "stop") x.disabled = true; });
-        const t = $("#mfTokens"); if (t) t.textContent = num(cfg.tokens).toLocaleString("en-US");
-        render(); return;
-      }
-      const next = rnd(1, 13);
-      const correct = g === "up" ? next >= st.cur : next <= st.cur;
-      // equal counts as a push, not a loss
-      cfg.plays++; save();
-      const reel = $("#mfHL"); if (reel) reel.textContent = next;
-      if (correct) {
-        st.streak++; st.cur = next; best("higher", num(st.streak));
-        if (out) out.innerHTML = `<span style="color:#43c46b">${next}! Correct — streak ${st.streak} (+8 in the pot)</span>`;
-        vibe(10);
-      } else {
-        if (out) out.innerHTML = `<span style="color:#e04343">${next}! Wrong. Pot lost, streak resets.</span>`;
-        st.streak = 0; st.cur = rnd(1, 13); vibe([25, 30]);
-      }
-      save();
-      const stop = $('[data-mf-hl="stop"]'); if (stop) stop.textContent = `Take the pot (${num(st.streak) * 8})`;
-    });
-    const b = $("#mfHLBack"); if (b) b.onclick = () => { play("choice"); openArcade(); };
-  }
-  function gameMemory() {
+    arcCleanup();
     const L = life();
-    const deck = ["🍎","🍋","🍇","🍒","🥑","🍉","🍑","🥝"];
-    const cards = deck.concat(deck).sort(() => Math.random() - .5);
-    L.mem = { cards, flipped: [], matched: [], moves: 0, lock: false };
-    drawMemory();
-  }
-  function drawMemory() {
-    const L = life(), m = L.mem;
-    const tiles = m.cards.map((c, i) => {
-      const shown = m.flipped.includes(i) || m.matched.includes(i);
-      return `<div class="mf-tile ${m.matched.includes(i) ? "done" : shown ? "flip" : ""}" data-mf-mem="${i}">${shown ? c : "❔"}</div>`;
-    }).join("");
-    showScreen("MEMORY MATCH", arcadeHead("Memory Match") + `<div class="mf-card">
-      <h4>Find the 8 pairs</h4><div class="mf-lead">Moves: <b id="mfMemMoves">${m.moves}</b> · fewer moves = more tokens.</div>
-      <div class="mf-grid" id="mfMemGrid">${tiles}</div>
-      <div class="mf-big" id="mfMemOut"></div></div>
-      <div class="mf-inline"><button class="mf-btn" id="mfMemNew">New board</button><button class="mf-btn" id="mfMemBack">Back to Arcade</button></div></div>`, openArcade);
-    $$("[data-mf-mem]").forEach((t) => t.onclick = () => memFlip(+t.dataset.mfMem));
-    const n = $("#mfMemNew"); if (n) n.onclick = () => { play("choice"); gameMemory(); };
-    const b = $("#mfMemBack"); if (b) b.onclick = () => { play("choice"); openArcade(); };
-  }
-  function memFlip(i) {
-    const L = life(), m = L.mem;
-    if (m.lock || m.flipped.includes(i) || m.matched.includes(i)) return;
-    m.flipped.push(i);
-    if (m.flipped.length === 2) {
-      m.moves++; m.lock = true;
-      const [a, b] = m.flipped;
-      if (m.cards[a] === m.cards[b]) {
-        m.matched.push(a, b); m.flipped = []; m.lock = false;
-        if (m.matched.length === m.cards.length) {
-          const reward = Math.max(5, 50 - m.moves);
-          addTokens(reward); cfg.plays++;
-          const score = Math.max(0, 100 - m.moves);
-          best("memory", score); save();
-          const out = $("#mfMemOut");
-          if (out) out.innerHTML = `<span style="color:#43c46b">All pairs! +${reward} tokens in ${m.moves} moves.</span>`;
-          vibe([20, 40, 20, 40]); render();
-          drawMemory(); return;
-        }
-      } else {
-        setTimeout(() => { m.flipped = []; m.lock = false; drawMemory(); }, 650);
+    if (!L.hl || !L.hl.deck || !L.hl.deck.length) L.hl = { deck: arcNewDeck(), cur: null, streak: 0, pot: 0, swap: 1, over: false };
+    const st = L.hl;
+    if (!st.cur && st.deck.length) st.cur = st.deck.pop();
+    arcScreen("HIGHER OR LOWER", `
+      <div class="arc-panel">
+        <div class="arc-row" style="justify-content:space-between">
+          <div class="arc-title">Read the deck</div><span class="arc-chip" id="arcHlPot">POT 0</span>
+        </div>
+        <div class="arc-sub">A real 52-card deck, no replacement. Equal rank is a push — your streak survives.
+          Bank the pot any time, or use your one swap to escape a bad card.</div>
+        <div class="arc-cardStage">
+          <div class="arc-card" id="arcHlCard"><div class="arc-f"></div><div class="arc-b" id="arcHlFace"></div></div>
+          <div style="text-align:center">
+            <div class="arc-chip" id="arcHlStreak">STREAK 0</div>
+            <div class="arc-sub" style="margin-top:8px">Cards left</div>
+            <div class="arc-bigNum" style="font-size:22px" id="arcHlLeft">0</div>
+          </div>
+        </div>
+        <div class="arc-prob" id="arcHlProb"></div>
+        <div class="arc-row" style="justify-content:center">
+          <button class="arc-btn primary" id="arcHlUp">HIGHER</button>
+          <button class="arc-btn primary" id="arcHlDown">LOWER</button>
+          <button class="arc-btn" id="arcHlSwap">SWAP (1)</button>
+          <button class="arc-btn gold" id="arcHlBank">BANK POT</button>
+        </div>
+        <div class="arc-out" id="arcHlOut"></div>
+      </div>`, openArcade);
+
+    const card = $("#arcHlCard"), face = $("#arcHlFace");
+    const reveal = (c, cb) => {
+      if (!card) return;
+      face.innerHTML = arcCardHTML(c);
+      card.classList.add("deal"); card.classList.toggle("flip", true);
+      arcSound("pageFlip");
+      arcLater(() => { card.classList.remove("deal"); if (cb) cb(); }, 480);
+    };
+    const odds = () => {
+      if (!st.cur) return;
+      let up = 0, down = 0, eq = 0;
+      for (const c of st.deck) { if (c.r > st.cur.r) up++; else if (c.r < st.cur.r) down++; else eq++; }
+      const tot = Math.max(1, st.deck.length);
+      const p = $("#arcHlProb");
+      if (p) p.innerHTML = `
+        <div><b>${Math.round(up/tot*100)}%</b><span>Higher</span></div>
+        <div><b>${Math.round(eq/tot*100)}%</b><span>Push</span></div>
+        <div><b>${Math.round(down/tot*100)}%</b><span>Lower</span></div>`;
+      const left = $("#arcHlLeft"); if (left) left.textContent = st.deck.length;
+    };
+    const refresh = () => {
+      const pot = $("#arcHlPot"); if (pot) pot.textContent = "POT " + st.pot;
+      const sr = $("#arcHlStreak"); if (sr) sr.textContent = "STREAK " + st.streak;
+      const sw = $("#arcHlSwap"); if (sw) { sw.disabled = st.swap < 1 || st.over; sw.textContent = `SWAP (${st.swap})`; }
+      const bk = $("#arcHlBank"); if (bk) bk.disabled = st.pot < 1 || st.over;
+      const left = $("#arcHlLeft"); if (left) left.textContent = st.deck.length;
+      odds();
+    };
+    const setButtons = (on) => {
+      ["arcHlUp","arcHlDown"].forEach((id) => { const b = $("#"+id); if (b) b.disabled = !on || st.over; });
+      const sw = $("#arcHlSwap"); if (sw) sw.disabled = !on || st.swap < 1 || st.over;
+      const bk = $("#arcHlBank"); if (bk) bk.disabled = !on || st.pot < 1 || st.over;
+    };
+    const bank = (silent) => {
+      if (st.pot < 1) return;
+      addTokens(st.pot); best("higher", st.streak); arcWin();
+      if (!silent) {
+        arcOut("#arcHlOut", `Banked <b>${st.pot} tokens</b> on a ${st.streak}-card streak.`, "good");
+        arcConfetti(20); arcFlash(); arcSound("coins"); arcVibe([20,40,20]);
       }
-    }
-    drawMemory();
-    const mv = $("#mfMemMoves"); if (mv) mv.textContent = m.moves;
+      arcSyncTokens(true, st.pot);
+      const won = st.pot; st.pot = 0; st.streak = 0;
+      st.deck = arcNewDeck(); st.cur = st.deck.pop(); st.swap = 1; st.over = false;
+      save(); refresh(); setButtons(true); render();
+      return won;
+    };
+    const draw = () => {
+      if (!st.deck.length) { bank(true); arcOut("#arcHlOut", "Deck exhausted — pot banked automatically.", "info"); return null; }
+      return st.deck.pop();
+    };
+    const guess = (dir) => {
+      if (st.over) return;
+      const next = draw(); if (!next) return;
+      setButtons(false);
+      reveal(next, () => {
+        cfg.plays++; save();
+        const eq = next.r === st.cur.r;
+        const correct = dir === "up" ? next.r > st.cur.r : next.r < st.cur.r;
+        if (eq) {
+          arcOut("#arcHlOut", `${ARC_RANKS[next.r]||next.r} — <b>push</b>. Streak survives, no pot added.`, "info");
+          arcSound("reveal");
+        } else if (correct) {
+          st.streak++; st.pot += 8 + st.streak * 4;
+          best("higher", st.streak);
+          const s = arcStats(); s.bestStreak = Math.max(num(s.bestStreak), st.streak);
+          arcOut("#arcHlOut", `${ARC_RANKS[next.r]||next.r} — <b>correct!</b> +${8 + st.streak*4} to the pot · streak ${st.streak}`, "good");
+          arcSound("ding"); arcVibe(10);
+          if (st.streak % 5 === 0) { arcConfetti(22); arcFlash(); arcSound("casinoWin"); }
+        } else {
+          arcOut("#arcHlOut", `${ARC_RANKS[next.r]||next.r} — <b>wrong.</b> ${st.pot} tokens lost. New run ready.`, "bad");
+          st.pot = 0; st.streak = 0; st.over = true; arcLoss();
+          arcSound("buzzer"); arcVibe([25,30]);
+        }
+        st.cur = next; save(); refresh();
+        if (st.over) {
+          arcLater(() => {
+            st.deck = arcNewDeck(); st.cur = st.deck.pop(); st.swap = 1; st.over = false;
+            save(); refresh(); setButtons(true);
+            arcOut("#arcHlOut", "Fresh deck dealt — go again.", "info");
+          }, 900);
+        } else setButtons(true);
+        render();
+      });
+    };
+    const up = $("#arcHlUp"); if (up) up.onclick = () => guess("up");
+    const dn = $("#arcHlDown"); if (dn) dn.onclick = () => guess("down");
+    const swp = $("#arcHlSwap"); if (swp) swp.onclick = () => {
+      if (st.swap < 1 || st.over) return;
+      st.swap--; const n = draw(); if (!n) return;
+      setButtons(false); reveal(n, () => {
+        st.cur = n; save(); refresh(); setButtons(true);
+        arcOut("#arcHlOut", "Card swapped. Streak and pot are safe.", "info");
+        arcSound("pageFlip");
+      });
+    };
+    const bk = $("#arcHlBank"); if (bk) bk.onclick = () => bank(false);
+    reveal(st.cur);
+    refresh();
+    arcOut("#arcHlOut", "Higher or lower? The odds are live.", "info");
   }
-  function gameSlots() {
-    showScreen("LUCKY SLOTS", arcadeHead("Lucky Slots") + `<div class="mf-card">
-      <h4>5 tokens a spin</h4><div class="mf-reels" id="mfReels">
-        <div class="mf-reel">🍒</div><div class="mf-reel">🍒</div><div class="mf-reel">🍒</div></div>
-      <div class="mf-inline"><button class="mf-btn" id="mfSpin">SPIN</button><button class="mf-btn" id="mfSpinBack">Back to Arcade</button></div>
-      <div class="mf-big" id="mfSlotOut"></div>
-      <div class="mf-sub">3 matching = 100 · 2 matching = 20 · 💎💎💎 = 300 · 7️⃣7️⃣7️⃣ = 500</div></div></div>`, openArcade);
-    const spin = $("#mfSpin");
-    if (spin) spin.onclick = () => {
-      if (num(cfg.tokens) < 5) { notify("Lucky Slots", "You need 5 tokens to spin. Try another game first."); return; }
-      addTokens(-5); cfg.plays++; save();
-      const r = [pick(SYMBOLS), pick(SYMBOLS), pick(SYMBOLS)];
-      $$("#mfReels .mf-reel").forEach((el, i) => { if (el) el.textContent = r[i]; });
-      let win = 0;
-      if (r[0] === r[1] && r[1] === r[2]) win = r[0] === "7️⃣" ? 500 : r[0] === "💎" ? 300 : 100;
-      else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) win = 20;
-      if (win) { addTokens(win); best("slots", win); vibe([20, 40, 20]); }
-      else vibe(12);
-      const out = $("#mfSlotOut");
-      if (out) out.innerHTML = win ? `<span style="color:#43c46b">+${win} tokens!</span>` : `<span class="mf-muted">No win this time.</span>`;
-      const t = $("#mfTokens"); if (t) t.textContent = num(cfg.tokens).toLocaleString("en-US");
+
+  /* ================================================================== *
+   * GAME 3 — MEMORY MATCH : study phase, 3D flips, combos, timer, hint
+   * ================================================================== */
+  function gameMemory() {
+    arcCleanup();
+    const L = life();
+    const cards = ARC_MEM.concat(ARC_MEM).sort(() => Math.random() - .5);
+    const m = L.mem = { cards, flipped: [], matched: [], moves: 0, combo: 0, best: 0,
+                        t0: 0, lock: true, done: false, hint: false, study: true };
+    const tiles = cards.map((c, i) => `
+      <div class="arc-mem" data-arc-mem="${i}">
+        <div class="arc-in"><div class="arc-mf">${sp("cardback","")}</div>
+          <div class="arc-mb">${sp(c,"")}</div></div>
+      </div>`).join("");
+    arcScreen("MEMORY MATCH", `
+      <div class="arc-panel">
+        <div class="arc-row" style="justify-content:space-between">
+          <div class="arc-title">Find all 8 pairs</div><span class="arc-chip" id="arcMemTime">00:00</span>
+        </div>
+        <div class="arc-sub">Study the board, then flip two at a time. Combos, speed and a low move count
+          all raise your score. A hint costs 15 tokens.</div>
+        <div class="arc-row tight">
+          <span class="arc-chip">Moves <b id="arcMemMoves">0</b></span>
+          <span class="arc-chip" id="arcMemCombo">Combo x1</span>
+          <span class="arc-chip" id="arcMemPairs">0 / 8 pairs</span>
+        </div>
+        <div class="arc-bar green" id="arcMemStudyBar"><u style="width:100%"></u></div>
+        <div class="arc-memGrid" id="arcMemGrid">${tiles}</div>
+        <div class="arc-row" style="justify-content:center">
+          <button class="arc-btn" id="arcMemHint">HINT · 15</button>
+          <button class="arc-btn ghost" id="arcMemNew">NEW BOARD</button>
+        </div>
+        <div class="arc-out" id="arcMemOut"></div>
+      </div>`, openArcade);
+
+    const grid = $("#arcMemGrid");
+    const bar = $("#arcMemStudyBar u");
+    const upd = () => {
+      const mv = $("#arcMemMoves"); if (mv) mv.textContent = m.moves;
+      const cb = $("#arcMemCombo"); if (cb) cb.textContent = "Combo x" + (1 + Math.min(m.combo, 5));
+      const pr = $("#arcMemPairs"); if (pr) pr.textContent = (m.matched.length/2) + " / 8 pairs";
+    };
+    const tick = () => {
+      const t = $("#arcMemTime"); if (!t) return;
+      const sec = Math.floor((performance.now() - m.t0) / 1000);
+      t.textContent = String(Math.floor(sec/60)).padStart(2,"0") + ":" + String(sec%60).padStart(2,"0");
+    };
+    const finishGame = () => {
+      m.done = true; arcCleanup();
+      const sec = Math.floor((performance.now() - m.t0)/1000);
+      const stars = m.moves <= 10 ? 3 : m.moves <= 15 ? 2 : 1;
+      const score = Math.max(0, 200 - m.moves * 6 - sec) + stars * 25;
+      const reward = Math.max(8, Math.round(score / 3));
+      addTokens(reward); best("memory", score); arcWin(); cfg.plays++; save();
+      const s = arcStats(); if (m.moves <= 8) s.perfect++; save();
+      const starsHTML = Array.from({length:3},(_,i) => sp("burst","xs",i < stars ? "" : "opacity:.28;filter:grayscale(1)")).join("");
+      arcOut("#arcMemOut", `<b>All pairs!</b> ${m.moves} moves · ${sec}s · ${starsHTML} <b>+${reward} tokens</b>`, "good");
+      arcConfetti(60); arcFlash(); arcSound("achievement"); arcVibe([20,40,20,40]);
+      arcSyncTokens(true, reward);
+      const b = $("#arcMemHint"); if (b) b.disabled = true;
       render();
     };
-    const b = $("#mfSpinBack"); if (b) b.onclick = () => { play("choice"); openArcade(); };
-  }
-  function gameReaction() {
-    showScreen("REACTION TEST", arcadeHead("Reaction Test") + `<div class="mf-card">
-      <h4>Wait for green…</h4><div class="mf-lead" id="mfReactLead">Tap START, then tap the big button the instant it turns green.</div>
-      <div id="mfReactPad" class="mf-tile" style="width:100%;aspect-ratio:auto;height:120px;font-size:16px;font-weight:900;border-radius:12px">TAP TO START</div>
-      <div class="mf-big" id="mfReactOut"></div></div>
-      <div class="mf-inline"><button class="mf-btn" id="mfReactBack">Back to Arcade</button></div></div>`, openArcade);
-    const pad = $("#mfReactPad"), lead = $("#mfReactLead"), out = $("#mfReactOut");
-    let phase = "idle", t0 = 0, timer = null;
-    if (pad) pad.onclick = () => {
-      if (phase === "idle") {
-        phase = "wait"; pad.style.background = "rgba(220,80,80,.25)"; pad.textContent = "WAIT…";
-        if (lead) lead.textContent = "Don't tap yet…";
-        timer = setTimeout(() => {
-          phase = "go"; t0 = performance.now();
-          pad.style.background = "rgba(67,196,107,.45)"; pad.textContent = "TAP!";
-        }, rnd(900, 2800));
-      } else if (phase === "wait") {
-        clearTimeout(timer); phase = "idle";
-        pad.style.background = ""; pad.textContent = "TAP TO START";
-        if (out) out.innerHTML = `<span style="color:#e04343">Too early! Wait for green.</span>`;
-      } else if (phase === "go") {
-        const ms = Math.round(performance.now() - t0);
-        phase = "idle"; pad.style.background = ""; pad.textContent = "TAP TO START";
-        const reward = ms < 250 ? 40 : ms < 400 ? 25 : ms < 600 ? 12 : 5;
-        addTokens(reward); cfg.plays++; best("reaction", Math.max(0, 1000 - ms)); save();
-        if (out) out.innerHTML = `<span style="color:#43c46b">${ms} ms — +${reward} tokens!</span>`;
-        if (lead) lead.textContent = "Tap START to try again.";
-        const t = $("#mfTokens"); if (t) t.textContent = num(cfg.tokens).toLocaleString("en-US");
-        vibe([20, 40, 20]); render();
+    const flip = (i) => {
+      if (m.lock || m.done || m.study || m.flipped.includes(i) || m.matched.includes(i)) return;
+      const el = grid && grid.querySelector(`[data-arc-mem="${i}"]`);
+      if (!el) return;
+      el.classList.add("flip"); m.flipped.push(i); arcSound("pageFlip");
+      if (m.flipped.length < 2) return;
+      m.moves++; m.lock = true; upd();
+      const [a, b] = m.flipped;
+      if (m.cards[a] === m.cards[b]) {
+        m.matched.push(a, b); m.flipped = []; m.combo++;
+        arcLater(() => {
+          [a, b].forEach((j) => { const e = grid.querySelector(`[data-arc-mem="${j}"]`); if (e) e.classList.add("done"); });
+          arcSound("ding"); arcVibe(8); arcConfetti(6);
+          upd(); m.lock = false;
+          if (m.matched.length === m.cards.length) finishGame();
+        }, 300);
+      } else {
+        m.combo = 0;
+        [a, b].forEach((j) => { const e = grid.querySelector(`[data-arc-mem="${j}"]`); if (e) e.classList.add("wrong"); });
+        arcSound("buzzer");
+        arcLater(() => {
+          [a, b].forEach((j) => {
+            const e = grid.querySelector(`[data-arc-mem="${j}"]`);
+            if (e) e.classList.remove("flip", "wrong");
+          });
+          m.flipped = []; m.lock = false; upd();
+        }, 760);
       }
     };
-    const b = $("#mfReactBack"); if (b) b.onclick = () => { clearTimeout(timer); play("choice"); openArcade(); };
-  }
-  function gameRPS() {
-    const L = life(); L.rps = L.rps || { me: 0, cpu: 0 };
-    const s = L.rps;
-    const opts = [["r", "✊ Rock"], ["p", "✋ Paper"], ["s", "✌️ Scissors"]];
-    showScreen("ROCK PAPER SCISSORS", arcadeHead("RPS") + `<div class="mf-card">
-      <h4>First to 3 wins · 40 tokens</h4>
-      <div class="mf-reels"><div class="mf-reel" id="mfRpsMe">${s.me}</div><div class="mf-reel" style="font-size:18px">YOU : CPU</div><div class="mf-reel" id="mfRpsCpu">${s.cpu}</div></div>
-      <div class="mf-inline">${opts.map(([k, t]) => `<button class="mf-btn" data-mf-rps="${k}">${t}</button>`).join("")}</div>
-      <div class="mf-big" id="mfRpsOut"></div></div>
-      <div class="mf-inline"><button class="mf-btn" id="mfRpsReset">New match</button><button class="mf-btn" id="mfRpsBack">Back to Arcade</button></div></div>`, openArcade);
-    const beats = { r: "s", p: "r", s: "p" };
-    $$("[data-mf-rps]").forEach((b) => b.onclick = () => {
-      const me = b.dataset.mfRps, cpu = pick(["r", "p", "s"]);
-      const out = $("#mfRpsOut");
-      cfg.plays++; save();
-      let txt;
-      if (me === cpu) txt = "Draw.";
-      else if (beats[me] === cpu) { s.me++; txt = `<span style="color:#43c46b">You win the round!</span>`; vibe(10); }
-      else { s.cpu++; txt = `<span style="color:#e04343">CPU wins the round.</span>`; }
-      if (s.me >= 3 || s.cpu >= 3) {
-        const won = s.me >= 3;
-        if (won) { addTokens(40); best("rps", num(cfg.best.rps) + 1); vibe([20, 40, 20, 40]); }
-        txt += won ? ` <b>Match won! +40 tokens.</b>` : ` <b>Match lost.</b>`;
-        s.me = 0; s.cpu = 0;
-        $$("[data-mf-rps]").forEach((x) => x.disabled = true);
-        const t = $("#mfTokens"); if (t) t.textContent = num(cfg.tokens).toLocaleString("en-US");
-        render();
+    if (grid) $$('[data-arc-mem]', grid).forEach((el) => el.onclick = () => flip(+el.dataset.arcMem));
+    const hint = $("#arcMemHint");
+    if (hint) hint.onclick = () => {
+      if (m.study || m.done || m.lock) return;
+      if (num(cfg.tokens) < 15) { notify("Memory Match", "A hint costs 15 tokens."); arcSound("buzzer"); return; }
+      addTokens(-15); arcSyncTokens(true, -15);
+      const pool = m.cards.map((c,i) => i).filter((i) => !m.matched.includes(i) && !m.flipped.includes(i));
+      const show = pool.slice().sort(() => Math.random() - .5).slice(0, 2);
+      show.forEach((i) => { const e = grid.querySelector(`[data-arc-mem="${i}"]`); if (e) e.classList.add("hint"); });
+      arcOut("#arcMemOut", "Two tiles revealed for a moment…", "info");
+      arcSound("reveal");
+      arcLater(() => {
+        show.forEach((i) => { const e = grid.querySelector(`[data-arc-mem="${i}"]`); if (e) e.classList.remove("hint"); });
+      }, 1100);
+    };
+    const nb = $("#arcMemNew"); if (nb) nb.onclick = () => { play("choice"); gameMemory(); };
+
+    // Study phase: reveal everything, count down 3s, then flip back and start.
+    if (grid) $$('[data-arc-mem]', grid).forEach((el) => el.classList.add("flip"));
+    arcOut("#arcMemOut", "STUDY THE BOARD…", "info");
+    const t0 = performance.now(), dur = 2600;
+    const studyStep = (t) => {
+      const p = Math.min(1, (t - t0)/dur);
+      if (bar) bar.style.width = (100 - p*100).toFixed(1) + "%";
+      if (p < 1) arcFrame(studyStep);
+      else {
+        if (grid) $$('[data-arc-mem]', grid).forEach((el) => el.classList.remove("flip"));
+        m.study = false; m.lock = false; m.t0 = performance.now();
+        arcEvery(tick, 250); tick();
+        arcOut("#arcMemOut", "Go! Find the pairs.", "");
+        arcSound("reveal");
       }
-      const a = $("#mfRpsMe"), c = $("#mfRpsCpu");
-      if (a) a.textContent = s.me; if (c) c.textContent = s.cpu;
-      if (out) out.innerHTML = txt;
+    };
+    arcFrame(studyStep);
+    upd();
+  }
+
+  /* ================================================================== *
+   * GAME 4 — LUCKY SLOTS : staggered reel spin, weighted RNG, paytable
+   * ================================================================== */
+  function arcWeighted() {
+    const total = ARC_SLOT.reduce((a, s) => a + s.w, 0);
+    let r = Math.random() * total;
+    for (const s of ARC_SLOT) { r -= s.w; if (r <= 0) return s; }
+    return ARC_SLOT[0];
+  }
+  function gameSlots() {
+    arcCleanup();
+    const L = life();
+    const st = L.slots || (L.slots = { bet: 5, auto: false, free: 0, spins: 0 });
+    const pay = ARC_SLOT.slice(0, 6).map((s) =>
+      `<div>${sp(s.k)}<span>${s.pay === 500 ? "500" : s.pay === 300 ? "300" : "100"}</span></div>`).join("");
+    arcScreen("LUCKY SLOTS", `
+      <div class="arc-panel">
+        <div class="arc-row" style="justify-content:space-between">
+          <div class="arc-title">Three-reel jackpot</div><span class="arc-chip" id="arcSlotFree">NO FREE SPINS</span>
+        </div>
+        <div class="arc-sub">Weighted reels, real near-misses and a full paytable. Three 7s award five free spins.
+          Payouts scale with your bet.</div>
+        <div class="arc-machine">
+          <div class="arc-lights">${Array.from({length:9},(_,i)=>`<i style="animation-delay:${i*.11}s"></i>`).join("")}</div>
+          <div class="arc-reels" id="arcReels">
+            ${[0,1,2].map((i) => `<div class="arc-reel" data-arc-reel="${i}">
+              <div class="arc-strip" id="arcStrip${i}"></div></div>`).join("")}
+          </div>
+        </div>
+        <div class="arc-row" style="justify-content:center;margin-top:12px">
+          <span class="arc-lab arc-chip">Bet</span>
+          <span class="arc-seg">${[1,5,10,25].map((v) =>
+            `<button class="arc-btn ${st.bet === v ? "on" : ""}" data-arc-bet="${v}">${v}</button>`).join("")}</span>
+        </div>
+        <div class="arc-row" style="justify-content:center">
+          <button class="arc-btn gold" id="arcSpin">SPIN · <span id="arcSpinCost">5</span></button>
+          <button class="arc-btn ${st.auto ? "primary" : "ghost"}" id="arcAuto">AUTO</button>
+        </div>
+        <div class="arc-pay">${pay}</div>
+        <div class="arc-out" id="arcSlotOut"></div>
+      </div>`, openArcade);
+
+    const CELL_H = 88, STRIP_N = 14;
+    const fillStrip = (i, result) => {
+      const strip = $("#arcStrip" + i); if (!strip) return;
+      const seq = [];
+      for (let j = 0; j < STRIP_N - 1; j++) seq.push(arcWeighted());
+      seq.push(result);
+      strip.innerHTML = seq.map((s) => `<div class="arc-cell">${sp(s.k)}</div>`).join("");
+      strip.style.transform = "translateY(0px)";
+      return strip;
+    };
+    [0,1,2].forEach((i) => fillStrip(i, ARC_SLOT[0]));
+    const spinState = { busy: false, raf: [] };
+    const stopReel = (i, result, dur, done) => {
+      const strip = fillStrip(i, result); if (!strip) { done(); return; }
+      const target = -(STRIP_N - 1) * CELL_H;
+      const t0 = performance.now();
+      const ease = (p) => 1 - Math.pow(1 - p, 3);
+      const step = (t) => {
+        const p = Math.min(1, (t - t0) / dur);
+        strip.style.transform = `translateY(${(target * ease(p)).toFixed(2)}px)`;
+        if (p < 1) arcFrame(step);
+        else { strip.style.transform = `translateY(${target}px)`; done(); }
+      };
+      arcFrame(step);
+    };
+    const refreshBet = () => {
+      $$('[data-arc-bet]').forEach((b) => b.classList.toggle("on", +b.dataset.arcBet === st.bet));
+      const c = $("#arcSpinCost"); if (c) c.textContent = st.free > 0 ? "FREE" : st.bet;
+      const f = $("#arcSlotFree"); if (f) f.textContent = st.free > 0 ? `${st.free} FREE SPINS` : "NO FREE SPINS";
+      const a = $("#arcAuto"); if (a) a.classList.toggle("primary", !!st.auto); a && a.classList.toggle("ghost", !st.auto);
+    };
+    const evaluate = (r) => {
+      const [a,b,c] = r.map((x) => x.k);
+      const mult = Math.max(1, st.bet / 5);
+      let win = 0, label = "";
+      if (a === b && b === c) {
+        const s = ARC_SLOT.find((x) => x.k === a);
+        win = Math.round((s ? s.pay : 100) * mult);
+        label = `THREE ${(s ? s.name : a).toUpperCase()}!`;
+        if (a === "seven") { st.free += 5; }
+        const st2 = arcStats(); st2.jackpots++; save();
+      } else if (a === b || b === c || a === c) {
+        win = Math.round(20 * mult); label = "TWO OF A KIND";
+      }
+      return { win, label };
+    };
+    const spin = () => {
+      if (spinState.busy) return;
+      const free = st.free > 0;
+      const cost = free ? 0 : st.bet;
+      if (num(cfg.tokens) < cost) {
+        notify("Lucky Slots", `You need ${cost} tokens to spin. Try another game first.`);
+        arcSound("buzzer"); st.auto = false; save(); refreshBet(); return;
+      }
+      spinState.busy = true;
+      const btn = $("#arcSpin"); if (btn) btn.disabled = true;
+      if (cost) addTokens(-cost);
+      if (free) st.free--;
+      st.spins++; cfg.plays++; save();
+      arcSyncTokens(true, cost ? -cost : 0);
+      arcSound("atm"); arcVibe(8);
+      arcOut("#arcSlotOut", "Reels spinning…", "info");
+      $$('[data-arc-reel]').forEach((el) => el.classList.remove("win"));
+
+      // Weighted results with deliberate near-misses.
+      let r = [arcWeighted(), arcWeighted(), arcWeighted()];
+      if (Math.random() < .14 && r[0].k !== r[1].k) { r[1] = r[0]; r[2] = arcWeighted(); if (r[2].k === r[0].k) r[2] = ARC_SLOT[1]; }
+      let stopped = 0;
+      [0,1,2].forEach((i) => {
+        stopReel(i, r[i], 900 + i * 420, () => {
+          arcSound("ding");
+          const reel = $(`[data-arc-reel="${i}"]`); if (reel) reel.classList.add("win");
+          stopped++;
+          if (stopped < 3) return;
+          const { win, label } = evaluate(r);
+          if (win) {
+            addTokens(win); best("slots", win); arcWin();
+            arcOut("#arcSlotOut", `<b>${label}</b> +${win} tokens!`, "good");
+            arcSound(win >= 200 ? "casinoWin" : "coins");
+            arcVibe([20,40,20]);
+            arcConfetti(win >= 200 ? 60 : 22); arcFlash();
+            arcSyncTokens(true, win);
+          } else {
+            arcLoss();
+            arcOut("#arcSlotOut", "No win this time. Spin again?", "bad");
+            arcSound("buzzer");
+          }
+          spinState.busy = false;
+          if (btn) btn.disabled = false;
+          refreshBet(); save(); render();
+          if (st.auto && (num(cfg.tokens) >= st.bet || st.free > 0)) arcLater(spin, 700);
+          else if (st.auto) { st.auto = false; save(); refreshBet(); }
+        });
+      });
+      refreshBet();
+    };
+    const sb = $("#arcSpin"); if (sb) sb.onclick = spin;
+    $$('[data-arc-bet]').forEach((b) => b.onclick = () => { st.bet = +b.dataset.arcBet; save(); refreshBet(); arcSound("choice"); });
+    const ab = $("#arcAuto"); if (ab) ab.onclick = () => { st.auto = !st.auto; save(); refreshBet(); arcSound("choice"); if (st.auto) spin(); };
+    refreshBet();
+    arcOut("#arcSlotOut", "Set your bet and hit SPIN.", "info");
+  }
+
+  /* ================================================================== *
+   * GAME 5 — REACTION TEST : 5 rounds, false starts, consistency score
+   * ================================================================== */
+  function arcRank(ms) {
+    if (ms < 180) return "LIGHTNING";
+    if (ms < 250) return "ELITE";
+    if (ms < 330) return "SHARP";
+    if (ms < 450) return "STEADY";
+    if (ms < 650) return "WARMING UP";
+    return "SLOW";
+  }
+  function gameReaction() {
+    arcCleanup();
+    const L = life();
+    const st = L.react || (L.react = { round: 0, times: [], falseStarts: 0, phase: "idle", t0: 0, session: 0 });
+    // Entering from the hub always starts a clean five-round run — never
+    // silently resume an abandoned session with old times in the table.
+    if (st.phase !== "go" && st.phase !== "wait") {
+      st.round = 0; st.times = []; st.falseStarts = 0; st.phase = "idle";
+      st.session = num(st.session) + 1; save();
+    }
+    arcScreen("REACTION TEST", `
+      <div class="arc-panel">
+        <div class="arc-row" style="justify-content:space-between">
+          <div class="arc-title">Five-round reflex run</div><span class="arc-chip" id="arcReactRound">ROUND 1 / 5</span>
+        </div>
+        <div class="arc-sub">Tap to arm, wait for the lights to turn green, then tap instantly.
+          A false start costs you the round. Consistency counts as much as raw speed.</div>
+        <div class="arc-lights3" id="arcLights"><i></i><i></i><i></i></div>
+        <div class="arc-pad idle" id="arcReactPad">
+          <i class="arc-padRing"></i>
+          <div class="arc-padMsg" id="arcReactMsg"><b>TAP TO ARM</b><span>Round 1 of 5</span></div>
+        </div>
+        <div class="arc-bigNum" id="arcReactBig">—</div>
+        <div class="arc-bar"><u id="arcReactBar" style="width:0%"></u></div>
+        <div class="arc-row tight" style="justify-content:center">
+          <span class="arc-chip" id="arcReactAvg">AVG —</span>
+          <span class="arc-chip" id="arcReactBest">BEST —</span>
+          <span class="arc-chip" id="arcReactFs">FALSE STARTS 0</span>
+        </div>
+        <table class="arc-table"><thead><tr><th>Round</th><th>Time / verdict</th></tr></thead>
+          <tbody id="arcReactRows"></tbody></table>
+        <div class="arc-row" style="justify-content:center"><button class="arc-btn ghost sm" id="arcReactReset">NEW SESSION</button></div>
+        <div class="arc-out" id="arcReactOut"></div>
+      </div>`, openArcade);
+
+    const pad = $("#arcReactPad"), msg = $("#arcReactMsg"), big = $("#arcReactBig");
+    const lights = $$("#arcLights i");
+    const setLights = (n) => lights.forEach((l, i) => { l.className = i < n ? (n === 3 ? "g" : i === 2 ? "a" : "r") : ""; });
+    const setState = (cls, title, sub) => {
+      if (pad) pad.className = "arc-pad " + cls;
+      if (msg) msg.innerHTML = `<b>${title}</b><span>${sub}</span>`;
+    };
+    const upd = () => {
+      const rr = $("#arcReactRound"); if (rr) rr.textContent = `ROUND ${Math.min(st.round+1,5)} / 5`;
+      const fs = $("#arcReactFs"); if (fs) fs.textContent = `FALSE STARTS ${st.falseStarts}`;
+      const times = st.times.filter((x) => x > 0);
+      const avg = times.length ? Math.round(times.reduce((a,b)=>a+b,0)/times.length) : 0;
+      const a = $("#arcReactAvg"); if (a) a.textContent = "AVG " + (avg ? avg + " ms" : "—");
+      const b = $("#arcReactBest"); if (b) b.textContent = "BEST " + (times.length ? Math.min(...times) + " ms" : "—");
+      const bar = $("#arcReactBar"); if (bar) bar.style.width = (st.times.length/5*100) + "%";
+      const rows = $("#arcReactRows");
+      if (rows) rows.innerHTML = st.times.map((ms, i) =>
+        `<tr><td>${i+1}</td><td>${ms < 0 ? '<span style="color:#ff9aa4">FALSE START</span>' :
+          `<b>${ms} ms</b> · ${arcRank(ms)}`}</td></tr>`).join("");
+    };
+    const finish = () => {
+      const times = st.times.filter((x) => x > 0);
+      const avg = times.length ? times.reduce((a,b)=>a+b,0)/times.length : 0;
+      const mean = avg || 1;
+      const variance = times.length ? times.reduce((a,b)=>a+(b-mean)*(b-mean),0)/times.length : 0;
+      const consistency = Math.round(Math.max(0, 100 - Math.sqrt(variance)/2));
+      const score = Math.max(0, Math.round(1000 - avg + consistency - st.falseStarts*60));
+      const reward = Math.max(5, Math.round(score/12));
+      addTokens(reward); best("reaction", score); arcWin();
+      arcOut("#arcReactOut", `<b>SESSION COMPLETE</b> — ${Math.round(avg)} ms avg · consistency ${consistency} · <b>+${reward} tokens</b>`, "good");
+      arcConfetti(50); arcFlash(); arcSound("achievement"); arcVibe([20,40,20]);
+      arcSyncTokens(true, reward);
+      setState("idle", "RUN COMPLETE", "Tap NEW SESSION to go again");
+      setLights(0); big.textContent = score + " pts";
+      st.phase = "done"; st.round = 5; save(); upd(); render();
+    };
+    const arm = () => {
+      if (st.phase !== "idle" && st.phase !== "done") return;
+      if (st.phase === "done") { st.round = 0; st.times = []; st.falseStarts = 0; save(); upd(); }
+      st.phase = "wait"; setLights(1);
+      setState("wait", "WAIT…", "Don't tap until it turns green");
+      big.textContent = "—";
+      arcOut("#arcReactOut", "Stay sharp…", "info");
+      arcTimers.forEach(clearTimeout); arcTimers = [];
+      arcLater(() => {
+        if (st.phase !== "wait") return;
+        st.phase = "go"; st.t0 = performance.now();
+        setLights(3);
+        setState("go", "TAP!", "Now");
+        arcSound("ding"); arcVibe(8);
+        arcFlash();
+      }, rnd(1200, 3400));
+    };
+    const tap = () => {
+      if (st.phase === "done") { arm(); return; }
+      if (st.phase === "idle") { arm(); return; }
+      if (st.phase === "wait") {
+        // False start.
+        arcCleanup();
+        st.times.push(-1); st.falseStarts++; st.round++; st.phase = "idle";
+        cfg.plays++; save();
+        setState("bad", "TOO EARLY", "False start — round lost");
+        setLights(1); big.textContent = "×";
+        arcOut("#arcReactOut", "False start! Wait for the green light.", "bad");
+        arcSound("buzzer"); arcVibe([25,30]);
+        upd();
+        if (st.round >= 5) arcLater(finish, 600);
+        return;
+      }
+      if (st.phase === "go") {
+        const ms = Math.round(performance.now() - st.t0);
+        arcCleanup();
+        st.times.push(ms); st.round++; st.phase = "idle";
+        cfg.plays++; save();
+        setState("idle", ms + " ms", arcRank(ms));
+        setLights(0); big.textContent = ms + " ms";
+        arcOut("#arcReactOut", `<b>${ms} ms</b> — ${arcRank(ms)}`, ms < 330 ? "good" : "info");
+        arcSound(ms < 250 ? "casinoWin" : "ding"); arcVibe(10);
+        if (ms < 220) arcConfetti(14);
+        upd();
+        if (st.round >= 5) arcLater(finish, 650);
+        else arcLater(() => { if (st.phase === "idle") { setState("idle", "TAP TO ARM", `Round ${st.round+1} of 5`); } }, 1100);
+      }
+    };
+    if (pad) pad.onclick = tap;
+    const rs = $("#arcReactReset");
+    if (rs) rs.onclick = () => {
+      arcCleanup(); st.round = 0; st.times = []; st.falseStarts = 0; st.phase = "idle"; st.session++;
+      save(); upd(); setLights(0); big.textContent = "—";
+      setState("idle", "TAP TO ARM", "Round 1 of 5");
+      arcOut("#arcReactOut", "New session ready.", "info");
+      play("choice");
+    };
+    upd();
+    setLights(0);
+    setState("idle", "TAP TO ARM", `Round ${st.round+1} of 5`);
+    arcOut("#arcReactOut", "Tap the pad to arm the first round.", "info");
+  }
+
+  /* ================================================================== *
+   * GAME 6 — ROCK PAPER SCISSORS : adaptive AI, animated throws, best of 5
+   * ================================================================== */
+  function gameRPS() {
+    arcCleanup();
+    const L = life();
+    const st = L.rps || (L.rps = { me: 0, cpu: 0, history: [], freq: { r:0, p:0, s:0 }, match: 0 });
+    const opts = [["r","rock","ROCK"],["p","paper","PAPER"],["s","scissors","SCISSORS"]];
+    arcScreen("ROCK PAPER SCISSORS", `
+      <div class="arc-panel">
+        <div class="arc-row" style="justify-content:space-between">
+          <div class="arc-title">Best of five</div><span class="arc-chip" id="arcRpsMatch">MATCH ${st.match+1}</span>
+        </div>
+        <div class="arc-sub">The opponent tracks what you throw and starts countering it. Mix it up.
+          Win the match for 40 tokens plus a streak bonus.</div>
+        <div class="arc-arena">
+          <div class="arc-hand" id="arcRpsMe">${sp("rock","lg")}</div>
+          <div class="arc-vs">${sp("versus","")}<b id="arcRpsCall">READY</b></div>
+          <div class="arc-hand cpu" id="arcRpsCpu">${sp("rock","lg")}</div>
+        </div>
+        <div class="arc-score">
+          <div><span>YOU</span><div class="arc-pips" id="arcRpsPipsMe"></div></div>
+          <div><span>CPU</span><div class="arc-pips" id="arcRpsPipsCpu"></div></div>
+        </div>
+        <div class="arc-row" style="justify-content:center">
+          ${opts.map(([k,art,lab]) => `<button class="arc-btn" data-mf-rps="${k}">${sp(art,"sm")} ${lab}</button>`).join("")}
+        </div>
+        <div class="arc-hist" id="arcRpsHist"></div>
+        <div class="arc-row" style="justify-content:center">
+          <button class="arc-btn ghost sm" id="mfRpsReset">New match</button>
+        </div>
+        <div class="arc-out" id="arcRpsOut"></div>
+      </div>`, openArcade, "mfRpsBack");
+
+    const beats = { r:"s", p:"r", s:"p" };
+    const label = { r:"ROCK", p:"PAPER", s:"SCISSORS" };
+    const meEl = $("#arcRpsMe"), cpuEl = $("#arcRpsCpu"), call = $("#arcRpsCall");
+    const pips = (id, n) => { const e = $(id); if (e) e.innerHTML = Array.from({length:3},(_,i)=>`<i class="arc-pip ${i<n?"on":""}"></i>`).join(""); };
+    const hist = () => {
+      const h = $("#arcRpsHist");
+      if (h) h.innerHTML = st.history.slice(-10).map((x) => sp(x === "w" ? "win" : x === "l" ? "lose" : "draw", "xs")).join("");
+    };
+    const aiPick = () => {
+      // Counter the player's most-used throw 60% of the time, else random.
+      const total = st.freq.r + st.freq.p + st.freq.s;
+      if (total >= 2 && Math.random() < .6) {
+        const fav = Object.keys(st.freq).sort((a,b) => st.freq[b] - st.freq[a])[0];
+        return Object.keys(beats).find((k) => beats[k] === fav) || fav;
+      }
+      return pick(["r","p","s"]);
+    };
+    const refresh = () => {
+      pips("#arcRpsPipsMe", st.me); pips("#arcRpsPipsCpu", st.cpu); hist();
+      const m = $("#arcRpsMatch"); if (m) m.textContent = "MATCH " + (st.match + 1);
+    };
+    const setButtons = (on) => $$('[data-mf-rps]').forEach((b) => b.disabled = !on);
+    const reset = () => { st.me = 0; st.cpu = 0; st.history = []; save(); refresh(); };
+
+    $$('[data-mf-rps]').forEach((b) => b.onclick = () => {
+      if (st.me >= 3 || st.cpu >= 3) return;
+      const me = b.dataset.mfRps;
+      const cpu = aiPick();
+      cfg.plays++; st.freq[me]++; save();
+      setButtons(false);
+      if (meEl) { meEl.classList.add("shake"); meEl.querySelector(".arc-sp").style.backgroundPosition = arcPos(me); }
+      if (cpuEl) cpuEl.classList.add("shake");
+      if (call) call.textContent = "ROCK…";
+      arcSound("choice"); arcVibe(8);
+      arcOut("#arcRpsOut", "Rock… paper… scissors…", "info");
+
+      const words = ["ROCK…", "PAPER…", "SCISSORS…"];
+      words.forEach((w, i) => arcLater(() => { if (call) call.textContent = w; arcSound("choice"); }, 180 + i*220));
+      arcLater(() => {
+        if (call) call.textContent = "SHOOT!";
+        [meEl, cpuEl].forEach((e) => { if (e) { e.classList.remove("shake"); e.classList.add("reveal"); } });
+        if (cpuEl) cpuEl.querySelector(".arc-sp").style.backgroundPosition = arcPos(cpu);
+        if (meEl) meEl.querySelector(".arc-sp").style.backgroundPosition = arcPos(me);
+        arcSound("reveal"); arcVibe(12);
+
+        let result, txt;
+        if (me === cpu) { result = "d"; txt = `Both threw ${label[me]} — <b>draw</b>.`; arcSound("pageFlip"); }
+        else if (beats[me] === cpu) {
+          st.me++; result = "w"; txt = `${label[me]} beats ${label[cpu]} — <b>you take the round!</b>`;
+          arcSound("ding"); arcVibe(10); arcConfetti(8);
+        } else {
+          st.cpu++; result = "l"; txt = `${label[cpu]} beats ${label[me]} — <b>CPU takes the round.</b>`;
+          arcSound("buzzer"); arcVibe([20,30]);
+        }
+        st.history.push(result);
+        arcOut("#arcRpsOut", txt, result === "w" ? "good" : result === "l" ? "bad" : "info");
+        refresh(); save();
+        arcLater(() => { [meEl, cpuEl].forEach((e) => e && e.classList.remove("reveal")); }, 450);
+
+        if (st.me >= 3 || st.cpu >= 3) {
+          const won = st.me >= 3;
+          if (won) {
+            const bonus = 40 + st.history.filter((x) => x === "w").length * 5;
+            addTokens(bonus); best("rps", st.me); arcWin(); st.match++;
+            arcOut("#arcRpsOut", `<b>MATCH WON!</b> +${bonus} tokens`, "good");
+            arcConfetti(60); arcFlash(); arcSound("achievement"); arcVibe([20,40,20,40]);
+            arcSyncTokens(true, bonus);
+          } else {
+            arcLoss(); st.match++;
+            arcOut("#arcRpsOut", "<b>Match lost.</b> The CPU read you — try a new mix.", "bad");
+            arcSound("crowdJeer");
+          }
+          save(); refresh(); render();
+          arcLater(() => { reset(); setButtons(true); if (call) call.textContent = "READY"; arcOut("#arcRpsOut", "New match — pick your throw.", "info"); }, 1300);
+        } else {
+          setButtons(true);
+          arcLater(() => { if (call) call.textContent = "YOUR THROW"; }, 800);
+        }
+      }, 780);
     });
-    const r = $("#mfRpsReset"); if (r) r.onclick = () => { s.me = 0; s.cpu = 0; play("choice"); gameRPS(); };
-    const b = $("#mfRpsBack"); if (b) b.onclick = () => { play("choice"); openArcade(); };
+    const r = $("#mfRpsReset");
+    if (r) r.onclick = () => { arcCleanup(); reset(); setButtons(true); if (call) call.textContent = "READY"; arcOut("#arcRpsOut", "New match — pick your throw.", "info"); play("choice"); };
+    const arcPos = (k) => {
+      const map = { r:"rock", p:"paper", s:"scissors" };
+      const p = ARC_SPR[map[k]] || ARC_SPR.rock;
+      return `${(p[0]/7*100).toFixed(4)}% ${(p[1]/4*100).toFixed(4)}%`;
+    };
+    if (meEl) meEl.querySelector(".arc-sp").style.backgroundPosition = arcPos("r");
+    if (cpuEl) cpuEl.querySelector(".arc-sp").style.backgroundPosition = arcPos("r");
+    refresh(); setButtons(true);
+    if (call) call.textContent = "YOUR THROW";
+    arcOut("#arcRpsOut", "First to three wins takes the match.", "info");
   }
 
   /* ------------------------------------------------------------------ *
