@@ -1129,6 +1129,8 @@
 .arc-root .arc-pad.go{background:linear-gradient(160deg,#1c7a4c,#0b3a26);
   box-shadow:0 0 34px rgba(67,224,138,.65),inset 0 0 40px rgba(120,255,180,.35)}
 .arc-root .arc-pad.bad{background:linear-gradient(160deg,#7a1c1c,#3a0e0e)}
+.arc-root .arc-pad:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:url(arcade/covers.png) 50% 100%/300% 200% no-repeat;opacity:.19}
 .arc-root .arc-padMsg{position:relative;z-index:3;text-align:center;font-weight:900;letter-spacing:1px}
 .arc-root .arc-padMsg b{display:block;font-size:25px;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.6)}
 .arc-root .arc-padMsg span{display:block;font-size:11px;opacity:.8;margin-top:4px;letter-spacing:1.5px;text-transform:uppercase}
