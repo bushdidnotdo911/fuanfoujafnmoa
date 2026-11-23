@@ -1,6 +1,6 @@
 /*
- * back-nav-fix.js — "Back" returns to the ACTIVITY, not the Activities menu
- * ======================================================================
+ * back-nav-fix.js — seamless "Back" from screens + floating Back tab
+ * =================================================================
  *
  * BUG 1 (original)
  * ----------------
@@ -12,48 +12,52 @@
  * closing Crime / Doctor / Salon / Parenting and tapping Back landed on the
  * Activities list instead of returning to the screen you were in.
  *
- * BUG 2 (this revision)
- * ---------------------
- * Re-opening the screen with a plain classList.add("open") re-triggered the
- * game's full-height slide-up:
+ * BUG 2 (floating Back tab spasm)
+ * -------------------------------
+ * Re-opening with a plain classList.add("open") re-triggered the game's
+ * full-height slide-up (.32s, .65s on the 2018 theme), which reversed the
+ * close animation mid-flight. Fixed by rendering the content first with
+ * transitions disabled, then flushing layout — the browser paints only the
+ * final, fully-rendered screen.
  *
- *     .screen.open { transform:translateY(0); transition:transform .32s ... }
- *     .phone.y2018 .screen.open { transition-duration:.65s }
+ * BUG 3 (THE SPASM ON THE ON-SCREEN BACK ARROW — this revision)
+ * ------------------------------------------------------------
+ * #sBack (the top-left arrow / X on every screen) is watched by the game:
  *
- * Closing a screen slides it DOWN; tapping Back then slides it all the way
- * back UP. If you tap quickly the two overlap and the transition reverses
- * mid-flight — the visible half-second "spasm". On the 2018 theme it is a
- * full 650ms.
+ *     navWatch(sBack.parentElement, -1)
+ *
+ * navWatch grabs a clone of sList on capture (snapNav) and, if the title
+ * changed, calls playNav(snap, -1) on bubble. playNav then:
+ *   - appends that clone as an absolutely-positioned GHOST over the screen,
+ *   - starts a 300ms translateX(0 -> 100%) on the ghost,
+ *   - starts a 300ms translateX(-30% -> 0) on the NEW list (a hard -126px
+ *     jump on frame one),
+ *   - fades sTitle from opacity 0 -> 1 over 250ms,
+ *   - removes the ghost after 330ms.
+ *
+ * So pressing Back from any screen produces ~344ms of overlapping slides,
+ * a blinking title, and a duplicate of the old screen laid on top. On a
+ * quick second tap playNav.end() calls .finish() on the in-flight
+ * animations, snapping the list back to -126px and the title to 0 — the
+ * visible "spasm". Cloned ghosts also re-decode images and lose IDs, so
+ * custom screens flash.
  *
  * THE FIX
  * -------
- * Loaded after the game core. It wraps every screen entry point, remembers
- * the exact renderer plus the arguments it was called with, and makes the
- * Back tab re-open THAT screen with NO animation at all.
+ * For any BACK-type click (header arrow, in-content "Back" button, or the
+ * floating tab) we:
+ *   1. arm an instant transition on #screen for the duration of the click,
+ *      so a close-type Back has no 320/650ms slide either;
+ *   2. make snapNav() return null, so navWatch never calls playNav at all —
+ *      no ghost, no list slide, no title fade;
+ *   3. call playNav.end() to clear any ghost left over from a previous
+ *      FORWARD navigation.
  *
- * Two kinds of entry points are wrapped:
- *   1. any global `openXxx()` function (these are the screen openers);
- *   2. any global function whose body sets sTitle.textContent and
- *      sBack.onclick (the older, source-based detection).
+ * Forward navigation (clicking a row to drill deeper) keeps the game's own
+ * slide animation — navWatch(sList, 1) still sees a non-null snapshot.
  *
- * Doing BOTH matters: several game modules install their own wrappers around
- * openers (e.g. `openCrime` is wrapped by a later script that calls the
- * original via `Z.apply(this, arguments)`). Those outer wrappers do not
- * contain the title/back markers, so source-based detection alone missed
- * them and the Back tab replayed a stale screen. Recording on an actual
- * title change catches indirect openers too.
- *
- * For the animation-free return we use the same trick the game itself uses
- * in snapClose(): disable the transition, render the content, force a
- * synchronous style/layout flush, then restore the transition. An inline
- * `transition:none` is used in addition to the `.snap` class because the
- * 2018 theme has a higher-specificity rule that would otherwise override it.
- * The renderer runs before the flush, so the browser only ever paints the
- * final, fully-rendered screen — no slide, no bounce, no ghost frame.
- *
- * Nothing in the game logic is touched: the original function is called with
- * the original arguments. If anything is unexpected (no recorded screen,
- * picker up, dead, re-open throws), the game's original handler runs.
+ * Nothing in the game logic is touched: screen renderers are called with
+ * their original arguments. Fallbacks are in place for every edge case.
  */
 (() => {
   "use strict";
@@ -61,6 +65,7 @@
   const screen  = document.getElementById("screen");
   const sTitle  = document.getElementById("sTitle");
   const sBack   = document.getElementById("sBack");
+  const sList   = document.getElementById("sList");
   const nav     = document.querySelector(".nav");
   const backTab = nav && nav.querySelector(".back-tab");
   if (!screen || !sTitle || !sBack || !backTab) return;
@@ -69,10 +74,12 @@
   let last = null;          // { fn, args, title } — the screen we were just in
   let lastReveal = null;    // diagnostics: "instant" | "fallback" | "original"
   let wrapped = 0;
+  let backClick = false;    // true only for the duration of a BACK-type click
+  let restoreFn = null;     // pending transition restore
 
-  /* Wrap every screen entry point. Top-level `function NAME(){}` declarations
-     in a classic script are writable properties of window, so replacing them
-     also affects calls made from inside other renderers and wrappers. */
+  /* ------------------------------------------------------------------ *
+   * 1. Remember the exact screen renderer (floating Back tab)
+   * ------------------------------------------------------------------ */
   const names = Object.getOwnPropertyNames(window);
   for (const name of names) {
     let orig, desc, src = "";
@@ -104,12 +111,14 @@
     } catch (e) { /* non-writable global: leave it alone */ }
   }
 
-  if (!wrapped) return;     // nothing to do; don't touch the Back tab
+  if (!wrapped) return;     // nothing to do; don't touch anything else
 
-  /* Stop any in-flight ghost navigation from the previous screen swap. The
-     game's playNav() leaves a cloned list absolutely positioned over #screen
-     for ~330ms; if Back is pressed during that window the stale ghost can
-     flash over the restored screen. playNav.end() is its own cleanup hook. */
+  /* ------------------------------------------------------------------ *
+   * 2. Helpers
+   * ------------------------------------------------------------------ */
+
+  /* playNav() installs its own cleanup as playNav.end. Calling it removes
+     the ghost clone and cancels its animations. */
   function clearPendingGhost() {
     try {
       if (typeof playNav === "function" && typeof playNav.end === "function")
@@ -117,9 +126,12 @@
     } catch (e) {}
   }
 
-  /* Disable every screen transition for the duration of one synchronous
-     render, then restore. Returns a cleanup function. */
-  function beginInstantReveal() {
+  /* Disable every screen transition for one click, then restore on the next
+     frame (while the screen holds its final state, so nothing animates).
+     Inline `transition:none` is required in addition to `.snap` because the
+     2018 theme has a higher-specificity rule. */
+  function armInstantBack() {
+    if (restoreFn) return;              // already armed for this click
     let previous = "";
     try {
       if (screen.style) {
@@ -129,9 +141,8 @@
     } catch (e) {}
     try { screen.classList.add("snap"); } catch (e) {}
 
-    return function endInstantReveal() {
-      // Force style + layout to commit translateY(0) while transitions are
-      // off. Without this the browser can animate from the old 100% offset.
+    const restore = () => {
+      // Commit the final transform while transitions are still off.
       try { void screen.offsetWidth; } catch (e) {}
       try {
         if (typeof getComputedStyle === "function")
@@ -140,15 +151,87 @@
       try {
         if (screen.style) {
           if (previous) screen.style.transition = previous;
-          else screen.style.removeProperty
-            ? screen.style.removeProperty("transition")
-            : (screen.style.transition = "");
+          else if (screen.style.removeProperty) screen.style.removeProperty("transition");
+          else screen.style.transition = "";
         }
       } catch (e) {}
       try { screen.classList.remove("snap"); } catch (e) {}
+      restoreFn = null;
     };
+    restoreFn = restore;
+    try {
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(restore);
+      else if (typeof setTimeout === "function") setTimeout(restore, 0);
+      else restore();
+    } catch (e) { restore(); }
   }
 
+  /* Is this click a BACK-type action? Covers the header arrow / X, the
+     floating bottom tab, and the in-content "Back" buttons used by both the
+     game and the custom screens (which live inside #sList). */
+  function isBackClick(ev) {
+    const t = ev && ev.target;
+    if (!t) return false;
+    try {
+      if (t === sBack || (sBack.contains && sBack.contains(t))) return true;
+      if (t === backTab || (backTab.contains && backTab.contains(t))) return true;
+    } catch (e) {}
+    try {
+      const el = t.nodeType === 1 ? t : (t.parentElement || null);
+      if (!el || !el.closest) return false;
+      if (el.id && /back/i.test(el.id)) return true;
+      const ctrl = el.closest(".row, .mf-btn, button, .tab, .bkc");
+      if (ctrl) {
+        if (ctrl.getAttribute && /back/i.test(ctrl.getAttribute("data-act") || "")) return true;
+        const b = ctrl.querySelector ? ctrl.querySelector("b") : null;
+        const txt = String((b && b.textContent) || ctrl.textContent || "")
+          .replace(/\s+/g, " ").trim().slice(0, 60);
+        if (/^(back|go back|back to|not now|never mind|cancel|close|←|‹)/i.test(txt))
+          return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 3. Suppress the ghost animation for BACK clicks (the actual spasm)
+   * ------------------------------------------------------------------ */
+  try {
+    if (typeof document.addEventListener === "function") {
+      // Capture on document fires BEFORE the game's capture listener on
+      // sBack.parentElement, so the flag is set before snapNav() is called.
+      document.addEventListener("click", (ev) => {
+        if (!isBackClick(ev)) return;
+        backClick = true;
+        clearPendingGhost();
+        armInstantBack();
+        // Clear after the whole click has finished. A timeout is safest:
+        // some handlers stop propagation, which would skip a bubble hook.
+        try {
+          if (typeof setTimeout === "function") setTimeout(() => { backClick = false; }, 0);
+        } catch (e) { backClick = false; }
+      }, true);
+    }
+  } catch (e) {}
+
+  /* navWatch calls the global snapNav() on every click. Returning null for
+     BACK clicks makes its bubble-phase guard short-circuit, so playNav() is
+     never called: no ghost, no -126px list jump, no title fade. Forward
+     clicks (navWatch(sList, 1)) still get the real snapshot and animate. */
+  try {
+    const origSnap = typeof snapNav === "function" ? snapNav : null;
+    const desc = Object.getOwnPropertyDescriptor(window, "snapNav");
+    if (origSnap && desc && desc.writable !== false) {
+      window.snapNav = function () {
+        if (backClick) return null;
+        return origSnap.apply(this, arguments);
+      };
+    }
+  } catch (e) {}
+
+  /* ------------------------------------------------------------------ *
+   * 4. Floating bottom-nav Back tab: re-open the exact activity, instantly
+   * ------------------------------------------------------------------ */
   const originalBack = backTab.onclick;
   backTab.onclick = function (ev) {
     const usable = last &&
@@ -166,10 +249,9 @@
     try { play("choice"); } catch (e) {}
 
     clearPendingGhost();
+    armInstantBack();
 
-    // The floating tab has a .22s pop-in animation. Kill it for this one
-    // click so the tab vanishes cleanly instead of snapping out mid-pop.
-    // Restore on the next frame, while the tab is hidden (no animation runs).
+    // Kill the tab's .22s pop-in for this one click so it vanishes cleanly.
     let tabAnimation = "";
     try {
       if (backTab.style) {
@@ -193,19 +275,13 @@
       else restoreTab();
     } catch (e) { restoreTab(); }
 
-    // Re-open with the content already rendered and NO slide.
-    const endReveal = beginInstantReveal();
-    let ok = false;
     try {
       screen.classList.add("open");
       rec.fn.apply(window, rec.args);
-      // Some openers add "open" themselves; make sure we ended in that state.
       if (!screen.classList.contains("open")) screen.classList.add("open");
-      ok = true;
       lastReveal = "instant";
     } catch (e) {
       if (window.console && console.warn) console.warn("Back navigation failed", e);
-      // Fall back to the game's own navigation, still without the slide.
       try {
         if (typeof originalBack === "function") {
           originalBack.call(this, ev);
@@ -213,19 +289,15 @@
         }
       } catch (e2) {}
       lastReveal = "fallback";
-    } finally {
-      try { endReveal(); } catch (e) {}
     }
-
-    if (!ok && typeof originalBack === "function" && lastReveal !== "fallback")
-      return originalBack.call(this, ev);
   };
 
-  // Exposed for the Node unit tests and the browser regression suite.
+  // Exposed for the Node unit tests and the browser regression suites.
   window.BACK_NAV_FIX = {
     get last() { return last; },
     get wrapped() { return wrapped; },
     get lastReveal() { return lastReveal; },
-    reset() { last = null; lastReveal = null; }
+    get backClick() { return backClick; },
+    reset() { last = null; lastReveal = null; backClick = false; }
   };
 })();
