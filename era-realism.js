@@ -71,6 +71,12 @@
 
   /* New ideas, 1901–1989. ico codes are reused from the game's own atlas. */
   var apple = function (c) { return "freelife/apple/" + c + ".png"; };
+  /* All artwork for this pack lives in era/ and is shipped with the update. */
+  var ICO = function (n) { return "era/" + n + ".png"; };
+  var NIC = function (n) {
+    return '<img class="era-nico" src="' + ICO(n) + '" alt="" ' +
+           'style="display:block;width:56px;height:56px;margin:10px auto 2px">';
+  };
   var NEW_INVENTIONS = [
     { id: "vacuum",  name: "Vacuum Cleaner", ico: apple("1f9f5"), y: 1901, roy: 6e3,  mat: 18, danger: .04, inventor: "Hubert Cecil Booth" },
     { id: "prints",  name: "Fingerprint Identification", ico: apple("1f58b-fe0f"), y: 1902, roy: 9e3, mat: 14, danger: .03, inventor: "Juan Vucetich, Francis Galton & Sir Edward Henry", note: "First used to solve a murder in Argentina in 1892; Scotland Yard adopted it in 1901." },
@@ -102,8 +108,10 @@
     INV.forEach(function (v) {
       v.histYear = v.y;
       v.inventor = HISTORICAL[v.id] || v.inventor || "An unknown tinkerer";
+      v.ico = ICO(v.id);           /* generated period illustration */
     });
     NEW_INVENTIONS.forEach(function (v) {
+      v.ico = ICO(v.id);
       if (INV.some(function (x) { return x.id === v.id; })) return;
       v.histYear = v.y;
       INV.push(v);
@@ -195,7 +203,7 @@
         var row = document.createElement("div");
         row.className = "row";
         row.setAttribute("data-er", "history");
-        row.innerHTML = '<img src="freelife/apple/1f4dc.png" alt=""><div class="t">' +
+        row.innerHTML = '<img src="' + ICO("history") + '" alt=""><div class="t">' +
           '<b>Rivals in History</b><span>See who really invented what</span></div>' + DOTS;
         sList.insertBefore(row, sList.firstChild);
         row.onclick = function () { play("choice"); openHistory(); };
@@ -231,7 +239,7 @@
       var text = you
         ? "In " + y + ", you patented the " + v.name + ". History credits " + v.inventor + ", but the patent is yours."
         : "In " + y + ", " + v.inventor + " unveiled the " + v.name + "." + (v.note ? " " + v.note : "");
-      queuePopup(function () { notice(title, text, null, true); });
+      queuePopup(function () { notice(title, text, null, true, NIC("news")); });
     });
   }
 
@@ -258,12 +266,12 @@
         queuePopup(function () {
           notice("Hauled in",
             "The rally was broken up and you spent a night in the cells. It cost you a fine, but the papers printed your name.",
-            null, true);
+            null, true, NIC("suffrage"));
         });
       } else {
         queuePopup(function () {
           notice("A voice in the movement",
-            "Your rally drew a crowd. People are starting to know your name.", null, true);
+            "Your rally drew a crowd. People are starting to know your name.", null, true, NIC("suffrage"));
         });
       }
     } else {
@@ -271,7 +279,7 @@
       fx({ Smarts: 2 });
       say("I joined the women's suffrage movement in " + y + ".");
       queuePopup(function () {
-        notice("Votes for women", "You have joined the movement for women's rights.", null, true);
+        notice("Votes for women", "You have joined the movement for women's rights.", null, true, NIC("suffrage"));
       });
     }
     /* Traditional relatives may disapprove. */
@@ -281,7 +289,7 @@
       p.rel = clamp((p.rel == null ? 60 : p.rel) - rint(3, 9));
     }
     notice("Identity", "You now identify as part of the women's rights movement.",
-      function () { openIdentity(); }, true);
+      function () { openIdentity(); }, true, NIC("suffrage"));
   }
 
   function openFeminist() {
@@ -303,7 +311,7 @@
         state.feminist = null;
         eraFx({ Respect: -3 });
         say("I stepped back from the women's rights movement.");
-        notice("Stepping back", "You let the movement carry on without you.", function () { openIdentity(); }, true);
+        notice("Stepping back", "You let the movement carry on without you.", function () { openIdentity(); }, true, NIC("suffrage"));
       }, "gray"]
     ] : [
       ["Join the suffrage movement", function () { femJoin(1); }, "green"],
@@ -311,11 +319,11 @@
       ["Keep your head down", function () {
         eraFx({ Respect: -2, Happiness: -2 });
         say("I stayed out of the suffrage movement.");
-        notice("On the sidelines", "You kept your opinions to yourself.", function () { openIdentity(); }, true);
+        notice("On the sidelines", "You kept your opinions to yourself.", function () { openIdentity(); }, true, NIC("suffrage"));
       }, "gray"]
     ];
     jCard({
-      tag: "Identity", iconSrc: "act/identity.png", title: "Women's Rights",
+      tag: "Identity", iconSrc: ICO("suffrage"), title: "Women's Rights",
       close: true, lead: lead,
       rows: f ? [["Standing", f.role], ["Since", f.since], ["Years active", f.years || 0]]
               : [["Year", y], ["Movement", "Suffrage & equal rights"]],
@@ -335,11 +343,33 @@
         row.className = "row";
         row.setAttribute("data-id", "feminist");
         var f = state.feminist;
-        row.innerHTML = '<img src="act/identity.png" alt=""><div class="t"><b>Women\'s Rights</b><span>' +
+        row.innerHTML = '<img src="' + ICO("suffrage") + '" alt=""><div class="t"><b>Women\'s Rights</b><span>' +
           (f ? "Standing: " + f.role + " (since " + f.since + ")" : "Suffrage, equal rights, and where you stand") +
           '</span></div>' + DOTS;
         sList.appendChild(row);
         row.onclick = function () { play("choice"); openFeminist(); };
+        /* Pin generated art on all identity rows up front — the base paths
+           are absent in some installs and the async error callback can land
+           after a screen capture. */
+        var rowIcons = { gender: "gender", name: "name",
+                         sexuality: "sexuality", feminist: "suffrage" };
+        sList.querySelectorAll("[data-id]").forEach(function (r) {
+          var key = rowIcons[r.getAttribute("data-id")];
+          var img = key && r.querySelector("img");
+          if (!img) return;
+          var art = ICO(key);
+          img.dataset.eraPin = art;
+          delete img.dataset.blSrc;     /* stop settings.js restoring legacy src */
+          delete img.dataset.eraFb;
+          delete img.dataset.eraOrig;
+          if (img.getAttribute("src") !== art) img.src = art;
+          /* Belt and braces: the picture also renders as a CSS background,
+             so a late src rewrite can never leave a blank option row. */
+          img.style.backgroundImage = "url(" + art + ")";
+          img.style.backgroundSize = "contain";
+          img.style.backgroundRepeat = "no-repeat";
+          img.style.backgroundPosition = "center";
+        });
       } catch (e) {}
       return res;
     };
@@ -355,7 +385,7 @@
       f.role = FEM_ROLES[f.level - 1];
       say("I became known as " + f.role.toLowerCase() + " in the women's rights movement.");
       queuePopup(function () {
-        notice("A louder voice", "People are starting to listen when you speak about equal rights.", null, true);
+        notice("A louder voice", "People are starting to listen when you speak about equal rights.", null, true, NIC("suffrage"));
       });
     }
     if (chance(.12)) {
@@ -380,7 +410,7 @@
     say("The baby was stillborn.");
     fx({ Happiness: -rint(12, 22) });
     jCard({
-      tag: "Baby", iconSrc: "love2/miscarriage.png", title: "Stillborn",
+      tag: "Baby", iconSrc: ICO("memorial"), title: "Stillborn",
       close: true,
       lead: "In " + y + ", before modern medicine, a difficult birth was a gamble with " +
         "both lives. " + who + " went through labor, but the child never drew breath.",
@@ -392,7 +422,7 @@
     if (e.surrogate) {
       say("My surrogate, " + e.surrogate.first + ", died after the birth.");
       fx({ Happiness: -18 });
-      notice("Gone", name + " died in childbirth in " + y + ". The baby is yours to raise.", null, true);
+      notice("Gone", name + " died in childbirth in " + y + ". The baby is yours to raise.", null, true, NIC("memorial"));
       return;
     }
     var pool = [state.spouse].concat(state.lovers || [], state.exes || []).filter(Boolean);
@@ -406,7 +436,7 @@
     }
     say("My partner, " + e.other.first + ", died after giving birth.");
     fx({ Happiness: -18 });
-    notice("Widowed", name + " died in childbirth in " + y + ".", null, true);
+    notice("Widowed", name + " died in childbirth in " + y + ".", null, true, NIC("memorial"));
   }
 
   function maternalDeath(e, y) {
@@ -425,7 +455,7 @@
         function () {
           if (playerGaveBirth) die("complications in childbirth");
           else markMotherDead(e, name, y);
-        }, true);
+        }, true, NIC("memorial"));
     });
   }
 
@@ -467,7 +497,7 @@
           if (state.dead) return;
           notice("A short life",
             "In " + y + ", infant illness took a terrible toll. Your life ended before it really began.",
-            function () { die("an infant illness"); }, true);
+            function () { die("an infant illness"); }, true, NIC("memorial"));
         });
         return;
       }
@@ -488,7 +518,7 @@
       queuePopup(function () {
         notice("A small grave",
           "In " + y + ", " + c.first + " died of " + c.deathCause +
-          ". Infant mortality was a fact of life in those years.", null, true);
+          ". Infant mortality was a fact of life in those years.", null, true, NIC("grave"));
       });
     });
   }
@@ -543,7 +573,7 @@
       try {
         state.job = {
           t: "Private", c: "Army", emp: war.name, pay: localPrice(400),
-          icon: "mil1800/army-seal.png", perf: 50, yrs: 0, worked: false, asked: false,
+          icon: ICO("conscription"), perf: 50, yrs: 0, worked: false, asked: false,
           mil1800: { k: "army", name: war.name, end: state.age + 3, term: 3, officer: false }
         };
         renderAvatar(); renderStats();
@@ -552,13 +582,13 @@
     try { state.respect = clamp((state.respect == null ? 40 : state.respect) + 3); } catch (e) {}
     notice("Called up",
       "You have been ordered to " + war.where + " with " + war.name + ". There is no saying no.",
-      null, true);
+      null, true, NIC("conscription"));
     if (chance(.55)) queuePopup(function () { deploymentCard(war, y); });
   }
 
   function deploymentCard(war, y) {
     jCard({
-      tag: "War", iconSrc: "mil1800/army-seal.png", title: "Sent to the Front",
+      tag: "War", iconSrc: ICO("conscription"), title: "Sent to the Front",
       close: true,
       lead: "Your regiment has been ordered to " + war.where + ". In " + y +
         ", boys of sixteen marched beside grown men, and many never came home.",
@@ -569,24 +599,24 @@
             queuePopup(function () {
               notice("Killed in action",
                 "You were killed during " + war.name + " at age " + state.age + ".",
-                function () { die("wounds received in " + war.name); }, true);
+                function () { die("wounds received in " + war.name); }, true, NIC("conscription"));
             });
           } else {
             fx({ Health: -rint(6, 20), Happiness: -rint(4, 10) });
             say("I served through " + war.name + " and came home changed.");
-            notice("Home from the war", "You survived " + war.name + ".", null, true);
+            notice("Home from the war", "You survived " + war.name + ".", null, true, NIC("conscription"));
           }
         }, "green"],
         ["Try to get sent home", function () {
           if (chance(.55)) {
             eraFx({ Respect: -6 });
             say("I managed to get sent home from " + war.name + ".");
-            notice("Sent home", "You were shipped home, but people noticed.", null, true);
+            notice("Sent home", "You were shipped home, but people noticed.", null, true, NIC("conscription"));
           } else {
             eraFx({ Respect: -8, Happiness: -5 });
             fx({ Health: -rint(5, 15) });
             say("I failed to get out of " + war.name + " and was disciplined.");
-            notice("No way out", "Your request was refused and you were put on report.", null, true);
+            notice("No way out", "Your request was refused and you were put on report.", null, true, NIC("conscription"));
           }
         }, "gray"]
       ]
@@ -606,11 +636,11 @@
           (state.wwDraft || (state.wwDraft = {}))[war.k] = "exempt";
           eraFx({ Respect: -2 });
           say("I was exempted from " + war.name + ".");
-          notice("Exempt", "Your claim was accepted. You will not be sent to " + war.where + ".", null, true);
+          notice("Exempt", "Your claim was accepted. You will not be sent to " + war.where + ".", null, true, NIC("conscription"));
         } else {
           eraFx({ Respect: -3 });
           notice("Claim refused", "The board turned you down. You are being sent anyway.",
-            function () { forceEnlist(war, y); }, true);
+            function () { forceEnlist(war, y); }, true, NIC("conscription"));
         }
       }]);
     }
@@ -620,7 +650,7 @@
         renderStats();
         eraFx({ Respect: -3 });
         say("I paid " + usd(fee) + " for a substitute to serve in " + war.name + ".");
-        notice("A substitute", "Someone else will march in your place.", null, true);
+        notice("A substitute", "Someone else will march in your place.", null, true, NIC("conscription"));
       }]);
     }
     choices.push(["Try to avoid the call-up", function () {
@@ -628,15 +658,15 @@
         eraFx({ Respect: -8, Happiness: -3 });
         say("I was caught avoiding the draft and marched off to " + war.name + ".");
         notice("Caught", "The conscription officers found you. There is no refusing now.",
-          function () { forceEnlist(war, y); }, true);
+          function () { forceEnlist(war, y); }, true, NIC("conscription"));
       } else {
         eraFx({ Respect: -6, Happiness: -3 });
         say("I kept out of sight during the call-up for " + war.name + ".");
-        notice("Out of sight", "You were not found this year, but people talk.", null, true);
+        notice("Out of sight", "You were not found this year, but people talk.", null, true, NIC("conscription"));
       }
     }, "dark"]);
     jCard({
-      tag: "Conscription", iconSrc: "mil1800/army-seal.png", title: "Called Up!",
+      tag: "Conscription", iconSrc: ICO("conscription"), title: "Called Up!",
       close: true,
       lead: "In " + y + ", " + war.name + " is grinding through " + war.where +
         ". The conscription officers have your name" +
@@ -671,6 +701,141 @@
     queuePopup(function () { draftCard(war, y); });
   }
 
+
+  /* ---------------------------------------------------------------- *
+   * 5. ARTWORK — generated icon pack + broken-image fallback
+   * ---------------------------------------------------------------- */
+  /* Ordered rules: first match wins. Anything the base install is missing
+     is replaced by a period-style illustration from era/. */
+  var ART_RULES = [
+    [/identity\/gender/i, "gender"], [/identity\/name/i, "name"],
+    [/identity\/sexuality/i, "sexuality"], [/identity\//i, "gender"],
+    [/act\/identity/i, "suffrage"], [/act\//i, "gear"],
+    [/mil1800\//i, "conscription"], [/\/mil\//i, "conscription"],
+    [/love2\/miscarriage|stillborn/i, "memorial"],
+    [/night\/girl|night\/boy|love2\//i, "baby"],
+    [/freelife\/apple\/1f4dc/i, "history"],
+    [/freelife\/apple\/1f9ea/i, "workshop"],
+    /* settings.js rewrites legacy icons to apple emoji codes; map the ones
+       used on menus and activity rows back to period illustrations. */
+    [/freelife\/apple\/1f6bb/i, "gender"],
+    [/freelife\/apple\/270d-fe0f/i, "name"],
+    [/freelife\/apple\/1f3f3-fe0f-200d-1f308/i, "sexuality"],
+    [/freelife\/apple\/1f464/i, "suffrage"],
+    [/freelife\/apple\/26ea/i, "church"],
+    [/freelife\/apple\/1f3c7/i, "horse"],
+    [/freelife\/apple\/1f9fa/i, "market"],
+    [/freelife\/apple\/1f4f0/i, "news"],
+    [/freelife\/apple\/1f4b5|1f4b0|1f3e6/i, "money"],
+    [/freelife\/apple\/1f4b8/i, "money"],
+    [/freelife\/apple\/1f4da|1f4d2|1f4dd/i, "book"],
+    [/freelife\/apple\/1f393|1f3eb|1f3db/i, "book"],
+    [/freelife\/apple\/1f3e0|1f3e1|1f3e5/i, "house"],
+    [/freelife\/apple\/2764-fe0f|1f494|1f49c|1f5a4/i, "hearts"],
+    [/freelife\/apple\/1f308/i, "sexuality"],
+    [/freelife\/apple\/1f9ec|1f930/i, "baby"],
+    [/freelife\/apple\/1f37c|1f476/i, "baby"],
+    [/freelife\/apple\/26b0|1f480|26b1/i, "grave"],
+    [/freelife\/apple\/1f6e1|2694|1fa96/i, "conscription"],
+    [/freelife\/apple\/1f52b|1f5de/i, "revolver"],
+    [/freelife\/apple\/1f3ed|1f9f8|1f527/i, "gear"],
+    [/freelife\/apple\/1f3a5|1f3ac/i, "movie"],
+    [/freelife\/apple\/1f4f7|1f4bb|1f5a5/i, "camera"],
+    [/freelife\/apple\/1f697|1f695|1f68c|1f693/i, "locomotive"],
+    [/freelife\/apple\/2708-fe0f|1f6e1/i, "airplane"],
+    [/freelife\/apple\/1f525|1f526/i, "matches"],
+    [/freelife\/apple\/1f4a1/i, "bulb"],
+    [/freelife\/apple\/1f3af|1f3b2|1f3ae|1f3b0/i, "money"],
+    [/freelife\/apple\/1f6cd|1f6d2|1f4e6/i, "market"],
+    [/freelife\/apple\/1f48a|1f9e0|1f9b7/i, "insulin"],
+    [/freelife\/apple\/1f4dc/i, "history"],
+    [/freelife\/apple\/1f4f0/i, "news"],
+    [/freelife\/apple\/1f4b5/i, "money"],
+    [/freelife\/apple\/2764|1f49c|heart/i, "hearts"],
+    [/freelife\/apple\/26ea/i, "church"],
+    [/freelife\/apple\/1f9fa/i, "market"],
+    [/freelife\/apple\/1f4a1/i, "bulb"],
+    [/freelife\/apple\/1f6de/i, "tire"],
+    [/freelife\/apple\/1f4f7/i, "camera"],
+    [/freelife\/apple\/260e/i, "telephone"],
+    [/freelife\/apple\/1f682/i, "locomotive"],
+    [/freelife\/apple\/1f6a2/i, "steamboat"],
+    [/freelife\/apple\/2708/i, "airplane"],
+    [/freelife\/apple\/1f525/i, "matches"],
+    [/freelife\/apple\/1f9e8/i, "dynamite"],
+    [/freelife\/apple\/2328/i, "typewriter"],
+    [/freelife\/apple\/1f4e8/i, "telegraph"],
+    [/freelife\/apple\/1f517/i, "barbed"],
+    [/freelife\/apple\/1f9f5/i, "sewing"],
+    [/freelife\/apple\/1f33f/i, "mower"],
+    [/freelife\/apple\/1f33e/i, "reaper"],
+    [/freelife\/apple\/1f52b/i, "revolver"],
+    [/freelife\/apple\/1f331/i, "plow"],
+    [/freelife\/apple\/1f6d7/i, "elevator"],
+    [/freelife\/apple\/1fa94/i, "kerosene"],
+    [/freelife\/apple\/1f570/i, "watch"],
+    [/freelife\/apple\/1f3b6/i, "phonograph"],
+    [/freelife\/apple\/1f9ca/i, "refrig"],
+    [/freelife\/apple\/1f58b/i, "pen"],
+    [/freelife\/apple\/1f6b2/i, "bicycle"],
+    [/freelife\/apple\/1f37d/i, "dishwasher"],
+    [/freelife\/apple\/2699/i, "gear"],
+    [/freelife\/apple\/1f3a5/i, "movie"],
+    [/freelife\/apple\/1f456/i, "zipper"],
+    [/freelife\/apple\/1f4fb/i, "tv"],
+    [/freelife\/apple\/2744/i, "aircon"],
+    [/freelife\/apple\/1f97e/i, "rubber"],
+    [/flags\//i, "web"],
+    [/ui\/skull|ui\/toolbarDeath|skull/i, "grave"],
+    [/ui\//i, "gear"],
+    [/emoji\//i, "gear"],
+    [/freelife\/apple\//i, "gear"],
+    [/biz\//i, "gear"],
+    [/jobev\//i, "gear"],
+    [/pets\//i, "horse"],
+    [/mining\//i, "dynamite"],
+    [/family1800s\//i, "house"],
+    [/eras\//i, "book"]
+  ];
+  var ART_GENERIC = ["gear", "book", "house", "market", "church", "horse",
+                     "hearts", "money", "news", "workshop", "history", "bulb"];
+  function artFor(src) {
+    src = String(src || "");
+    for (var i = 0; i < ART_RULES.length; i++)
+      if (ART_RULES[i][0].test(src)) return ART_RULES[i][1];
+    var h = 0;
+    for (var k = 0; k < src.length; k++) h = (h * 31 + src.charCodeAt(k)) | 0;
+    return ART_GENERIC[Math.abs(h) % ART_GENERIC.length];
+  }
+  function fixBrokenImage(img) {
+    if (!img || img.tagName !== "IMG") return;
+    var src = img.getAttribute("src") || "";
+    if (/^era\//.test(src)) return;           /* generated art loaded fine */
+    if (img.dataset.eraPin) {                 /* pinned row: always restore it */
+      if (src !== img.dataset.eraPin) img.src = img.dataset.eraPin;
+      return;
+    }
+    /* settings.js can rewrite a src several times before it settles, so allow
+       a few repair rounds but remember the first (most descriptive) path. */
+    var n = parseInt(img.dataset.eraFb || "0", 10);
+    if (n >= 3) return;
+    if (!img.dataset.eraOrig) img.dataset.eraOrig = src;
+    img.dataset.eraFb = String(n + 1);
+    img.src = ICO(artFor(img.dataset.eraOrig));
+  }
+  function installArtFallback() {
+    try {
+      document.addEventListener("error", function (ev) {
+        var t = ev.target;
+        if (t && t.tagName === "IMG") fixBrokenImage(t);
+      }, true);
+      /* Anything that already failed before this module loaded. */
+      [].slice.call(document.images || []).forEach(function (img) {
+        if (img.complete && !img.naturalWidth) fixBrokenImage(img);
+      });
+    } catch (e) {}
+  }
+
   /* ---------------------------------------------------------------- *
    * Yearly hook — registered last so core handlers run first
    * ---------------------------------------------------------------- */
@@ -686,6 +851,7 @@
 
   function boot() {
     installInventions();
+    installArtFallback();
     wrapJCard();
     wrapInventing();
     wrapIdentity();
@@ -707,6 +873,9 @@
       warsFor: warsFor,
       serving: serving,
       onAge: onAge,
+      artFor: artFor,
+      fixBrokenImage: fixBrokenImage,
+      installArtFallback: installArtFallback,
       openHistory: openHistory,
       openFeminist: openFeminist,
       historyTick: historyTick,
