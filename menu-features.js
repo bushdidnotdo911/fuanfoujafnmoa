@@ -144,7 +144,7 @@
     star: "emoji/2b50.png", gear: "ui/gear.png", trophy: "emoji/1f3c6.png",
     city: "menu/cityscape.png", people: "menu/hand-writing.png",
     sports: "menu/basketball.png", heart: "menu/heart-yellow.png",
-    help: "menu/help-center.png", pack: "emoji/1f4bc.png",
+    help: "menu/help-center.png", pack: "emoji/1f4bc.png", capitol: "politics/capitol.png",
     bag: "menu/shopping-bags.png", skull: "menu/skull-and-bones.png",
     globe: "emoji/1f30e.png", sound: "settings/sound.png",
     game: "settings/minigames.png", half: "settings/halfyear.png",
@@ -2668,7 +2668,7 @@
     ["horse", "Horse Races", "horse"], ["hunting", "Hunting & Fishing", "hunting"], ["identity", "Identity", "identity"],
     ["lawsuit", "Lawsuit", "lawsuit"], ["licenses", "Licenses", "licenses"], ["loan", "Loan", "loan"],
     ["lottery", "Lottery", "lottery"], ["love", "Love", "love"], ["mindbody", "Mind & Body", "mindbody"],
-    ["movies", "Movie Theater", "movies"], ["nightlife", "Nightlife", "nightlife"], ["pets", "Pets", "pets"],
+    ["movies", "Movie Theater", "movies"], ["nightlife", "Nightlife", "nightlife"], ["pets", "Pets", "pets"], ["politics", "Political Career", "../politics/capitol"],
     ["surgery", "Plastic Surgery", "surgery"], ["pray", "Pray", "pray"], ["rehab", "Rehab", "rehab"],
     ["salon", "Salon & Spa", "salon"], ["shopping", "Shopping", "shopping"], ["social", "Social Media", "social"],
     ["sweepstakes", "Sweepstakes", "sweepstakes"], ["therapy", "Therapy", "therapy"],
@@ -3435,6 +3435,7 @@
       ["city", "Custom Cities", openCustomCities], ["people", "Custom People", openCustomPeople],
       ["sports", "Edit Sports Teams", openSportsTeams], ["heart", "Favorite Activities", openFavoriteActivities],
       ["help", "Help & Feedback", () => openHelp()], ["pack", "Job Packs", openJobPacks],
+      ["capitol", "Political Career", () => window.POLITICS && POLITICS.openPolitics()],
       ["bag", "Expansion Packs", () => openExpansionPacks()], ["floppy", "Restore Purchases", openRestore],
       ["cart", "Marketplace", () => { try { openMarketplace(); } catch (e) {} }],
     ];
@@ -3478,6 +3479,7 @@
       movies: ["openMovies"], lawsuit: ["openLawsuit"], shopping: ["openShopping", "acts"],
       fertility: ["openFertility"], therapy: ["openTherapy"], hunting: ["openHunting"],
       adoption: [null, openAdoption], sweepstakes: [null, openSweepstakes], zoo: [null, openZoo],
+      politics: [null, () => window.POLITICS && POLITICS.openPolitics()],
     };
     const spec = M[k];
     if (!spec) { notify(ACT_NAME[k] || "Activity", "That activity isn't available in this version."); return; }
