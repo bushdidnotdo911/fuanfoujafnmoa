@@ -241,7 +241,7 @@
       "Back":"Atrás","Age":"Edad","New Life":"Nueva vida","Save Life":"Guardar vida",
       "View Past Lives":"Ver vidas anteriores","My Stuff":"Mis cosas","Community":"Comunidad",
       "Accessories":"Accesorios","Achievements":"Logros","Cemetery":"Cementerio",
-      "Custom Cities":"Ciudades personalizadas","Custom People":"Personas personalizadas",
+      "Custom Cities":"Ciudades de EE. UU.","Custom People":"Personas personalizadas",
       "Edit Sports Teams":"Editar equipos","Favorite Activities":"Actividades favoritas",
       "Help":"Ayuda","Job Packs":"Paquetes de empleo","Expansion Packs":"Paquetes de expansión",
       "Themes":"Temas","Redeem Code":"Canjear código","Store":"Tienda","My Lives":"Mis vidas",
@@ -2467,40 +2467,56 @@
   /* ------------------------------------------------------------------ *
    * 12. Custom content editors (real, persisted, injected into the game)
    * ------------------------------------------------------------------ */
+  function stateCode(c) {
+    try {
+      const U = window.US_STATES;
+      if (!U) return "us";
+      if (U.data[c]) return c;
+      return U.stateOfCity(c) || "CA";
+    } catch (e) { return "us"; }
+  }
   function countryOptions(sel) {
     let out = "";
     try {
-      const C = window.COUNTRIES || {};
-      const codes = Object.keys(C).sort((a, b) => String(C[a][0]).localeCompare(String(C[b][0])));
-      out = codes.map((c) => `<option value="${esc(c)}"${c === sel ? " selected" : ""}>${esc(C[c][0])}</option>`).join("");
+      const U = window.US_STATES;
+      const codes = U ? U.list() : ["us"];
+      out = codes.map((c) => `<option value="${esc(c)}"${c === sel ? " selected" : ""}>${esc(U ? U.name(c) : "United States")}</option>`).join("");
     } catch (e) {}
-    return out || '<option value="us">United States</option>';
+    return out || '<option value="CA">California</option>';
   }
   function countryName(c) {
-    try { return (window.COUNTRIES[c] || [c])[0]; } catch (e) { return c; }
+    try {
+      const U = window.US_STATES;
+      if (U && U.data[c]) return U.name(c);
+      if (U && U.data[U.stateOfCity(c)]) return U.name(U.stateOfCity(c));
+    } catch (e) {}
+    return "United States";
   }
   function applyCustomCities() {
     try {
       const C = window.CITIES;
       if (!C) return;
       for (const x of cfg.customCities) {
-        if (!x || !x.name || !x.country) continue;
-        if (!Array.isArray(C[x.country])) C[x.country] = [];
-        if (C[x.country].indexOf(x.name) < 0) C[x.country].push(x.name);
+        if (!x || !x.name) continue;
+        const k = stateCode(x.country || x.state);
+        if (!Array.isArray(C.us)) C.us = [];
+        if (C.us.indexOf(x.name) < 0) C.us.push(x.name);
+        if (window.US_STATES) US_STATES.addCity(k, x.name);
       }
+      try { if (window.US_STATES) US_STATES.applyCustom(cfg.customCities); } catch (e) {}
     } catch (e) {}
   }
   function openCustomCities() {
     applyCustomCities();
     const list = cfg.customCities.length ? cfg.customCities.map((x, i) =>
-      `<div class="row" data-mf-city="${i}"><img src="${ico("city")}" alt=""><div class="t"><b>${esc(x.name)}</b><span>${esc(countryName(x.country))} · appears in city pickers and immigration</span></div><div class="mf-row-actions"><button class="mf-mini" data-mf-go="${i}">Move here</button><button class="mf-mini" data-mf-del="${i}">Delete</button></div></div>`).join("")
+      `<div class="row" data-mf-city="${i}"><img src="${ico("city")}" alt=""><div class="t"><b>${esc(x.name)}</b><span>${esc(countryName(x.country))} · appears in city pickers and relocations</span></div><div class="mf-row-actions"><button class="mf-mini" data-mf-go="${i}">Move here</button><button class="mf-mini" data-mf-del="${i}">Delete</button></div></div>`).join("")
       : '<div class="mf-lead">No custom cities yet. Add one below and it will show up in the city lists in the game.</div>';
     showScreen("CUSTOM CITIES", `<div class="mf-wrap">
-      <div class="mf-lead">Add your hometown to the game. Custom cities are saved on this device and injected into the real city pickers (New Life, Emigrate, friend moves) as soon as you add them.</div>
+      <div class="mf-lead">Add your hometown to the game. Custom cities are saved on this device and injected into the real state city lists (New Life, Relocate, My State) as soon as you add them.</div>
       <div class="sec">Your cities</div>${list}
       <div class="sec">Add a city</div>
       <div class="mf-card">
-        <label class="mf-lab">Country</label><select class="mf-input" id="mfCityCountry">${countryOptions("us")}</select>
+        <label class="mf-lab">State</label><select class="mf-input" id="mfCityCountry">${countryOptions("us")}</select>
         <label class="mf-lab">City name</label><input class="mf-input" id="mfCityName" maxlength="48" placeholder="e.g. Springfield">
         <button class="mf-btn" id="mfCityAdd">Add city</button>
       </div>
@@ -2529,9 +2545,9 @@
     $$("[data-mf-go]").forEach((b) => b.onclick = () => {
       const x = cfg.customCities[+b.dataset.mfGo]; if (!x) return;
       try {
-        state.country = x.country; state.city = x.name;
-        sayIt(`I moved to ${x.name}, ${countryName(x.country)}.`);
-        notify("Moved", `You now live in ${x.name}, ${countryName(x.country)}.`);
+        state.country = "us"; state.usState = stateCode(x.country || x.state); state.city = x.name;
+        sayIt(`I moved to ${x.name}, ${state.usState}.`);
+        notify("Moved", `You now live in ${x.name}, ${countryName(state.usState)}.`);
         render(); vibe(15);
       } catch (e) { notify("Custom Cities", "Couldn't move there in this life."); }
     });
@@ -2663,7 +2679,7 @@
 
   const ACTIVITY_LIST = [
     ["accessories", "Accessories", "accessories"], ["adoption", "Adoption", "adoption"],
-    ["crime", "Crime", "crime"], ["doctor", "Doctor", "doctor"], ["emigrate", "Emigrate", "passport"],
+    ["crime", "Crime", "crime"], ["doctor", "Doctor", "doctor"], ["emigrate", "Relocate", "passport"],
     ["fertility", "Fertility", "fertility"], ["fight", "Fight Betting", "fight"], ["gamble", "Gamble", "gamble"],
     ["horse", "Horse Races", "horse"], ["hunting", "Hunting & Fishing", "hunting"], ["identity", "Identity", "identity"],
     ["lawsuit", "Lawsuit", "lawsuit"], ["licenses", "Licenses", "licenses"], ["loan", "Loan", "loan"],
@@ -2763,7 +2779,7 @@
     ["Can I get packs without paying?", "Yes — everything in this build is free. Marketplace, Expansion Packs and Job Packs all just mark the pack as collected."],
     ["What are arcade tokens for?", "Win them in Mini-Games, then cash them out for real in-game money. 10 tokens = $10, once per game year."],
     ["How do I get my stuff on another device?", "Settings → Restore Earlier Purchase → Copy restore code. Paste that code on the other device to bring back your packs, mods, themes and achievements."],
-    ["Do custom cities really appear in the game?", "Yes. They're injected into the real city lists used by New Life, Emigrate and friend moves as soon as you add them."],
+    ["Do custom cities really appear in the game?", "Yes. They're injected into the real state city lists used by New Life, Relocate and My State as soon as you add them."],
     ["What does Half-Year Age Up do?", "Each Age tap covers six months. The first passes half a year with a small stat drift; the second completes the year and runs the full yearly tick."],
     ["Which languages are supported?", "Settings → Languages lists them. Menus, screens, buttons and common labels are translated; anything a language doesn't cover stays in English. Life-story text, names and numbers are never changed."],
     ["Is there a leaderboard offline?", "Yes. If the online leaderboard isn't reachable, the game shows a local one built from the lives saved on this device, sortable by age, net worth, children and lovers."],

@@ -54,12 +54,8 @@
   /* ------------------------------------------------------------------ *
    * Fictional geography
    * ------------------------------------------------------------------ */
-  var NATIONS = ["the Republic of Aldoria", "the Commonwealth of Viremont", "the Realm of Caldor",
-    "the Federation of Estmarch", "the Principality of Norvane", "the Union of Lysoria",
-    "the Dominion of Ostraven", "the Free States of Meridia", "the Kingdom of Karsonne",
-    "the Concord of Dravenshire"];
-  var DISTRICTS = ["Northgate", "Riverbend", "Old Harbour", "Ashfield", "Kingsmead", "Fairhaven",
-    "Stonebridge", "Elmwick", "Southmoor", "Highbridge"];
+  var NATIONS = ["the United States"];
+  var DISTRICTS = ["New England", "the Mid-Atlantic", "the Great Lakes", "the Deep South", "the Gulf Coast", "the Great Plains", "the Rockies", "the Southwest", "the Pacific Northwest", "the Capital Region"];
 
   /* ------------------------------------------------------------------ *
    * Career config

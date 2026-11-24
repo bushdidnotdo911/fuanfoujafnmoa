@@ -149,12 +149,12 @@
       choices: [
         { t: "Go on Thursday", color: "green", fx: { Happiness: 8 }, note: "He is already there, and he has saved the chair opposite him." },
         { t: "Keep the note, stay home", fx: { Happiness: 2 }, note: "You tuck it into a book. It stays there for years." } ] },
-    { id: "moved", title: "He's Moved Away", icon: "map",
+    { id: "moved", title: "He's Moved Away", icon: "airplane",
       lead: "Someone mentions, in passing, that {name} has taken a room in another town. There is no forwarding address and no great drama to it — just the small, specific ache of a door that no longer opens.",
       choices: [
         { t: "Write a letter", color: "green", fx: { Happiness: 4 }, note: "You write it, and post it, and never quite expect an answer." },
         { t: "Let it go", fx: { Happiness: -2 }, note: "Some people are a season. You let the season be what it was." } ] },
-    { id: "invite", title: "An Invitation", icon: "rally",
+    { id: "invite", title: "An Invitation", icon: "phonograph",
       lead: "{name} has sent word: a small supper, a handful of friends, a piano that is badly out of tune. <i>\"Come as you are,\"</i> the note says, which is exactly how he has always preferred you.",
       choices: [
         { t: "Go", color: "green", fx: { Happiness: 10, Health: 1 }, note: "The piano is worse than advertised. The company is considerably better." },
@@ -164,7 +164,7 @@
       choices: [
         { t: "Cross the room", color: "green", fx: { Happiness: 7 }, note: "You talk until the room thins out, about nothing in particular." },
         { t: "Salute back and stay put", fx: { Happiness: 3 }, note: "He smiles, and lets you keep your evening." } ] },
-    { id: "argument", title: "A Small Misunderstanding", icon: "press",
+    { id: "argument", title: "A Small Misunderstanding", icon: "news",
       lead: "A careless word has landed badly. {name} is polite about it, which is somehow worse than being angry. There is a pause long enough for you to decide what kind of person you want to be here.",
       choices: [
         { t: "Apologise properly", color: "green", fx: { Happiness: 6 }, note: "He accepts it without making you pay for it twice. That, more than anything, is why you're glad you stayed." },
