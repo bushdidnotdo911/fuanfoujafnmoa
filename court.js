@@ -335,6 +335,8 @@
       sBack.innerHTML = (typeof BACK_ICON !== 'undefined' ? BACK_ICON : '‹');
       sBack.onclick = backFn || function () { screen.classList.remove('open'); };
       sList.innerHTML = html;
+      var ctWrap = sList.querySelector('.mf-wrap');
+      if (ctWrap) ctWrap.classList.add('ct-wrap');
       sList.scrollTop = 0;
       screen.classList.add('open');
       var list = sList.querySelectorAll('[data-go]');
@@ -359,8 +361,8 @@
   }
   function verifiedBadge(src) {
     if (src === 'verified' || src === 'verified-threshold' || src === 'verified-class')
-      return '<span style="color:#1a7f52;font-weight:700">VERIFIED STATUTE</span>';
-    return '<span style="color:#a0631c;font-weight:700">MODELED EXPOSURE</span>';
+      return '<span class="ct-badge ct-verified">VERIFIED STATUTE</span>';
+    return '<span class="ct-badge ct-modeled">MODELED EXPOSURE</span>';
   }
   function hub() {
     var c = C();
@@ -464,9 +466,9 @@
       '<div class="mf-card">' + lead(
         '<b>Classification system:</b> ' + esc(S.classification) + '<br>' +
         '<b>Sentencing structure:</b> ' + (S.guidelines === 'grid' ? 'determinate guidelines grid' : 'statutory maxima / judicial discretion') + '<br>' +
-        '<b>Theft felony threshold:</b> ' + usd(S.theftThreshold) + ' <span style="color:#1a7f52;font-weight:700">· VERIFIED</span><br>' +
-        '<b>First-offence DUI maximum jail:</b> ' + esc(S.duiNote) + ' <span style="color:#1a7f52;font-weight:700">· VERIFIED</span><br>' +
-        '<b>Pretrial / bail:</b> ' + esc(S.bail.system) + ' <span style="color:#1a7f52;font-weight:700">· VERIFIED</span><br>' +
+        '<b>Theft felony threshold:</b> ' + usd(S.theftThreshold) + ' <span class="ct-badge ct-verified">· VERIFIED</span><br>' +
+        '<b>First-offence DUI maximum jail:</b> ' + esc(S.duiNote) + ' <span class="ct-badge ct-verified">· VERIFIED</span><br>' +
+        '<b>Pretrial / bail:</b> ' + esc(S.bail.system) + ' <span class="ct-badge ct-verified">· VERIFIED</span><br>' +
         esc(S.bail.note) + '<br>' +
         '<b>Formal habitual / three-strikes scheme:</b> ' + (S.threeStrikes ? 'yes' : 'no general three-strikes statute confirmed') ) + '</div>' +
       sec('Gang enhancement') +
@@ -549,7 +551,7 @@
       (isCA ? 'Under PC 186.22 as amended by <b>AB 333 (2022)</b>, every element must be established by substantial evidence. Membership, tattoos or a nickname are not enough.' :
         'Under ' + esc(S.gang.statute) + ', the prosecution must establish each element before an added term is imposed.')) +
       sec('Prosecution evidence by element') +
-      els.map(function (e) { return '<div class="mf-card"><div class="mf-lead"><b>' + esc(e.t) + '</b>' + (e.challenged ? ' <span style="color:#1a7f52">CHALLENGED</span>' : '') + '<br>' + esc(e.d) + '</div>' + bar('Evidence', e.v, e.v < 50 ? 'low' : '') + '</div>'; }).join('') +
+      els.map(function (e) { return '<div class="mf-card"><div class="mf-lead"><b>' + esc(e.t) + '</b>' + (e.challenged ? ' <span class="ct-badge ct-verified">CHALLENGED</span>' : '') + '<br>' + esc(e.d) + '</div>' + bar('Evidence', e.v, e.v < 50 ? 'low' : '') + '</div>'; }).join('') +
       sec('Your challenge') +
       btn('ch:pattern','Challenge the predicate pattern','') +
       btn('ch:benefit','Challenge gang purpose / specific intent','') +
@@ -1465,7 +1467,50 @@
   };
   window.COURT = API;
 
+
+  /* ------------------------------------------------------------------------
+   * Dark-mode palette.
+   * The shared .mf-* card kit inherits #screen's black foreground in dark
+   * mode, which made every lead, card and button black-on-navy. Scope the fix
+   * to .ct-wrap (added in show()) so other screens are untouched.
+   * --------------------------------------------------------------------- */
+  function injectDarkCSS() {
+    try {
+      if (document.getElementById('courtDarkStyles')) return;
+      var st = document.createElement('style');
+      st.id = 'courtDarkStyles';
+      st.textContent = [
+        '.phone.dark .ct-wrap{color:#e6edf6}',
+        '.phone.dark .ct-wrap .mf-lead{color:#dce7f3;opacity:.92}',
+        '.phone.dark .ct-wrap .mf-sub{color:#d2dfee;opacity:.84}',
+        '.phone.dark .ct-wrap .mf-muted{color:#cbd9ea}',
+        '.phone.dark .ct-wrap b,.phone.dark .ct-wrap strong{color:#f3f7fd}',
+        '.phone.dark .ct-wrap .mf-card{background:rgba(125,160,215,.13);border-color:rgba(150,185,225,.30);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}',
+        '.phone.dark .ct-wrap .mf-card h4{color:#f3f7fd}',
+        '.phone.dark .ct-wrap .mf-btn{color:#eaf2fc;background:rgba(125,160,215,.16);border-color:rgba(150,185,225,.40)}',
+        '.phone.dark .ct-wrap .mf-btn:hover{background:rgba(125,185,235,.30)}',
+        '.phone.dark .ct-wrap .mf-btn.on{color:#d9ffe9;background:rgba(67,196,107,.22);border-color:#43c46b}',
+        '.phone.dark .ct-wrap .mf-btn.danger{color:#ffdede;background:rgba(220,80,80,.20);border-color:rgba(240,120,120,.60)}',
+        '.phone.dark .ct-wrap .mf-mini{color:#eaf2fc;background:rgba(125,160,215,.16);border-color:rgba(150,185,225,.40)}',
+        '.phone.dark .ct-wrap .mf-mini:hover{background:rgba(125,185,235,.30)}',
+        '.phone.dark .ct-wrap .mf-input{color:#eaf2fc;background:rgba(255,255,255,.07);border-color:rgba(150,185,225,.42)}',
+        '.phone.dark .ct-wrap .mf-table td,.phone.dark .ct-wrap .mf-table th{border-bottom-color:rgba(150,185,225,.22)}',
+        '.phone.dark .ct-wrap .mf-chip{color:#eaf2fc;background:rgba(125,160,215,.20);border-color:rgba(150,185,225,.36)}',
+        '.phone.dark .ct-wrap .mf-bar{background:rgba(255,255,255,.10)}',
+        '.phone.dark .ct-wrap .bar{background:rgba(255,255,255,.09)}',
+        '.phone.dark .ct-wrap .gm-row b{color:#f0f5fc}',
+        '.ct-badge{font-weight:700}',
+        '.ct-badge.ct-verified{color:#1a7f52}',
+        '.ct-badge.ct-modeled{color:#a0631c}',
+        '.phone.dark .ct-badge.ct-verified{color:#5fe0a1}',
+        '.phone.dark .ct-badge.ct-modeled{color:#f2b45e}'
+      ].join('\n');
+      document.head.appendChild(st);
+    } catch (e) {}
+  }
+
   function boot() {
+    injectDarkCSS();
     /* Replace the vanilla charges -> plea -> verdict chain. */
     try {
       var orig = window.charges;
