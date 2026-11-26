@@ -981,19 +981,24 @@
   .phone.rainbow .screen{background:linear-gradient(160deg,#ffe3ea,#fff1dc,#fffbd9,#e2fae7,#dff6ff,#e6e8ff,#f5e3ff)}
   .phone.rainbow .age-btn{background:conic-gradient(#ff0040,#ff8a00,#ffe600,#2ee05a,#00c8ff,#4a5bff,#c040ff,#ff0040);animation:rgbHue 3s linear infinite}
   .phone.rainbow .age-btn span,.phone.rainbow .age-btn svg{text-shadow:0 1px 3px rgba(0,0,0,.6);filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
-  .phone.jailed .profile,.phone.jailed .stats,.phone.jailed .home,.phone.jailed .screen .profile{background:#ececec url(prison/hero.png) 0 0/128px 128px repeat!important;animation:none!important}
-  .phone.jailed.dark .profile,.phone.jailed.dark .stats,.phone.jailed.dark .home,.phone.jailed.dark .screen .profile{background:#2b2d31 url(prison/hero-dm.png) 0 0/128px 128px repeat!important}
-  .phone.jailed.famous .profile,.phone.jailed.famous .stats,.phone.jailed.famous .home,.phone.jailed.famous .screen .profile{background:#fff7d6 url(fame/stars.png) 0 0/104px 104px repeat!important}
-  .phone.jailed.famous.dark .profile,.phone.jailed.famous.dark .stats,.phone.jailed.famous.dark .home,.phone.jailed.famous.dark .screen .profile{background:#03182b url(fame/stars-dm.png) 0 0/104px 104px repeat!important}
-  .phone.jailed .nav{background:#74777c!important;animation:none!important}
-  .phone.jailed .tab{border-right-color:#8d9095}
+  /* Incarceration: no special theme. Only the functional tab lock remains,
+     so the player keeps whatever light/dark/seasonal theme they selected. */
   .phone.jailed .tab[data-tab]:not([data-tab="Occupation"]) > *{visibility:hidden}
   .phone.jailed .tab[data-tab]:not([data-tab="Occupation"]){cursor:default}
-  .phone.jailed .tab[data-tab="Occupation"]{background:var(--blue)}
   .phone.jailed .tab[data-tab="Occupation"] .ic.img img{width:40px;height:40px;margin-top:-4px}
-  .phone.y2018.jailed .tab[data-tab="Occupation"]{background:none}
+  /* The player's own avatar is shown behind generated steel bars while locked up.
+     !important is needed because the FreeLife theme also styles .profile::before
+     (snow icicles); the bars must win that single pseudo-element. */
+  .phone.jailed > .profile{position:relative}
+  .phone.jailed > .profile::before{
+    content:""!important;position:absolute!important;
+    left:11px!important;right:auto!important;top:5px!important;bottom:auto!important;
+    width:40px!important;height:40px!important;z-index:4!important;
+    pointer-events:none!important;transform:none!important;
+    background:url(prison/avatar-bars.png) center/100% 100% no-repeat!important}
+  .phone.y2018.jailed > .profile::before{left:14px!important;top:7px!important;width:44px!important;height:44px!important}
+  html.pc .phone.jailed > .profile::before{left:max(11px,var(--pccol))!important}
   .phone.y2018 .tab[data-tab="Occupation"][data-mode="prison"]::before{background-image:url(2018/toolbarPrisonButton.png)}
-  .phone.y2018.jailed .tab[data-tab]:not([data-tab="Occupation"])::before{opacity:.25;filter:grayscale(1)}
   .jm-tag.brick{background:url(prison/focus.png) right center/100% 100% no-repeat}
   .phone.dark .jm-tag.brick{background:url(prison/focus-dm.png) right center/100% 100% no-repeat}
   .ev-tag.brick{background:url(prison/focus.png) right center/100% 100% no-repeat}
@@ -1986,6 +1991,7 @@
   .ft-fame ul{margin:4px 0 6px 18px;font-size:12.5px;color:#4a3a14;font-weight:700;line-height:18px}
   .ft-fame .lg{font-size:12px;font-style:italic;color:#7a5a10}
 </style>
+
 </head>
 <body>
 <div class="phone bl-locked">
@@ -2238,7 +2244,7 @@
 <script src="bikes.js?v=4"></script>
 <script src="zxcvbn.js"></script>
 <script src="cemetery.js?v=7"></script>
-<script src="settings.js?v=82"></script>
+<script src="settings.js?v=83"></script>
 <script src="musician.js?v=10"></script>
 <script src="invest.js?v=54"></script>
 <script src="stocks1900.js?v=5"></script>
